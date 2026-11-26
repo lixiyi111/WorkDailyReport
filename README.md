@@ -71,3 +71,4 @@ SDD 要求的三份核心规范（`proposal.md` / `design.md` / `tasks.md`）将
 ## 项目级技能
 
 - `.claude/skills/unslop/`：前端优化技能，来自 [heydamir/unslop](https://github.com/heydamir/unslop)，作者 Damir Sokolovsky，许可 CC BY 4.0。仅当前项目使用。
+- `.claude/skills/` 下的 Superpowers 技能库：来自 [obra/superpowers](https://github.com/obra/superpowers)，作者 Jesse Vincent，许可 MIT（见 `SUPERPOWERS-LICENSE`）。**阶段二（第 3–4 周）使用；阶段一（v1）仍只走 SDD。**

@@ -79,7 +79,15 @@ conda activate work_daily
 pip install -r requirements-dev.txt
 ```
 
-### 4. 启动
+### 4. 导入演示数据（可选）
+
+```bash
+mysql -h 127.0.0.1 -P 3305 -u root -p daily_report < sql/demo_data.sql
+```
+
+会清空业务表并写入：8 名成员、3 个仓库、72 条提交、24 个任务、42 条群消息、21 份日报、156 条日报条目。
+
+### 5. 启动
 
 ```bash
 uvicorn app.main:app --reload --port 8000

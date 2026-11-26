@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.db.session import get_session
-from app.models import DailyReport, PushLog, ReportItem, ReportVersion
+from app.models import DailyReport, Member, PushLog, ReportItem, ReportVersion
 from app.schemas import GenerateRequest, PushRequest, ReportUpdate
 from app.services.collectors import (
     MockFeishuMessageCollector,
@@ -23,13 +23,18 @@ from app.services.pushers import ConsolePusher, EmailPusher, FeishuBotPusher
 router = APIRouter(prefix="/reports", tags=["reports"])
 
 
-def _report_dict(report: DailyReport, items: list[ReportItem] | None = None) -> dict:
+def _report_dict(
+    report: DailyReport,
+    items: list[ReportItem] | None = None,
+    member_name: str | None = None,
+) -> dict:
     data = {
         "id": report.id,
         "report_date": report.report_date.isoformat(),
         "report_type": report.report_type,
         "scope_key": report.scope_key,
         "member_id": report.member_id,
+        "member_name": member_name,
         "status": report.status,
         "current_version": report.current_version,
         "content_md": report.content_md,
@@ -73,7 +78,14 @@ async def list_reports(
             stmt.order_by(DailyReport.report_date.desc(), DailyReport.id.desc())
         )
     ).scalars().all()
-    return [_report_dict(report) for report in reports]
+    members = {
+        member.id: member.name
+        for member in (await session.execute(select(Member))).scalars().all()
+    }
+    return [
+        _report_dict(report, member_name=members.get(report.member_id))
+        for report in reports
+    ]
 
 
 @router.get("/{report_id}")
@@ -90,7 +102,8 @@ async def get_report(
             .order_by(ReportItem.sort_order)
         )
     ).scalars().all()
-    return _report_dict(report, items)
+    member = await session.get(Member, report.member_id) if report.member_id else None
+    return _report_dict(report, items, member.name if member else None)
 
 
 @router.put("/{report_id}")
@@ -116,7 +129,8 @@ async def update_report(
     report.current_version = new_version
     report.status = "draft"
     await session.commit()
-    return _report_dict(report)
+    member = await session.get(Member, report.member_id) if report.member_id else None
+    return _report_dict(report, member_name=member.name if member else None)
 
 
 @router.post("/generate")

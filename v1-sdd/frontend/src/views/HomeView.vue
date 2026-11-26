@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
+import { RouterLink } from 'vue-router'
 
 import client from '../api/client'
 
@@ -128,6 +129,7 @@ onMounted(loadHealth)
       </div>
     </dl>
     <p class="side-foot">日报列表与编辑页尚未接入</p>
+    <RouterLink class="text-link" to="/reports">查看全部日报</RouterLink>
   </section>
   </div>
 </template>
