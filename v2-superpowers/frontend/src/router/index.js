@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
+import AttendanceView from '../views/AttendanceView.vue'
 import HomeView from '../views/HomeView.vue'
 import IdentitiesView from '../views/IdentitiesView.vue'
 import LoginView from '../views/LoginView.vue'
@@ -14,6 +15,12 @@ const router = createRouter({
     { path: '/login', name: 'login', component: LoginView, meta: { title: '登录' } },
     { path: '/', name: 'home', component: HomeView, meta: { title: '工作台' } },
     { path: '/reports', name: 'reports', component: ReportsView, meta: { title: '日报' } },
+    {
+      path: '/attendance',
+      name: 'attendance',
+      component: AttendanceView,
+      meta: { title: '考勤' },
+    },
     {
       path: '/reports/:id',
       name: 'report-detail',

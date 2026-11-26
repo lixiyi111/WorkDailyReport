@@ -1,5 +1,6 @@
 <script setup>
 import {
+  CalendarDays,
   Database,
   FileText,
   Fingerprint,
@@ -25,6 +26,7 @@ const items = computed(() =>
   [
     { to: '/', label: '工作台', icon: LayoutDashboard },
     { to: '/reports', label: '日报', icon: FileText },
+    { to: '/attendance', label: '考勤', icon: CalendarDays },
     { to: '/sources', label: '数据源', icon: Database, roles: ['admin', 'leader'] },
     {
       to: '/identities',
