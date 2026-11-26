@@ -61,6 +61,50 @@ def main() -> None:
                 f"{report.get('member_name') or ''}"
             )
 
+        attendance = client.get(
+            f"{BASE}/attendance?date={REPORT_DATE}", headers=admin_headers
+        ).json()
+        print(f"考勤记录: {len(attendance)} 条")
+        for row in attendance:
+            print(
+                f"  - {row['member_name']} {row['attendance_date']} "
+                f"{row['status']} {row.get('check_in_at') or '—'}"
+            )
+        mine_attendance = client.get(
+            f"{BASE}/attendance?date={REPORT_DATE}", headers=member_headers
+        ).json()
+        print(f"成员可见考勤: {len(mine_attendance)} 条")
+
+        personal = next(
+            (
+                report
+                for report in reports
+                if report["report_type"] == "personal"
+                and report["report_date"] == REPORT_DATE
+            ),
+            None,
+        )
+        if personal is not None:
+            detail = client.get(
+                f"{BASE}/reports/{personal['id']}", headers=admin_headers
+            ).json()
+            print("个人日报含考勤段:", "## 考勤" in detail["content_md"])
+
+        team = next(
+            (
+                report
+                for report in reports
+                if report["report_type"] == "team"
+                and report["report_date"] == REPORT_DATE
+            ),
+            None,
+        )
+        if team is not None:
+            detail = client.get(
+                f"{BASE}/reports/{team['id']}", headers=admin_headers
+            ).json()
+            print("团队日报含考勤汇总:", "考勤：" in detail["content_md"])
+
 
 if __name__ == "__main__":
     main()

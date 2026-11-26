@@ -245,12 +245,12 @@ flowchart LR
 | V2-062 验收核对 | ✅ | `docs/验收核对表.md`；3 人端到端 0.088s |
 | V2-063 运行手册 | ✅ | `v2-superpowers/README.md` |
 | V2-064 功能对齐核对 | ✅ | `docs/功能对齐表.md` |
-| V2-070 变更单与规范同步 | ⬜ | 变更单 06/07/08 + specs + v2 docs |
-| V2-071 考勤采集器 | ⬜ | `collectors/attendance.py` |
-| V2-072 考勤入库与编排 | ⬜ | `attendance_records` + orchestrator |
-| V2-073 日报考勤段与 API | ⬜ | 五段式 + `/api/attendance` |
-| V2-074 前端考勤页 | ⬜ | `AttendanceView.vue` |
-| V2-075 全量回归与 tag | ⬜ | 回归 + `v2-superpowers` tag |
+| V2-070 变更单与规范同步 | ✅ | `f28c031`；06/07/08 + specs + v2 docs |
+| V2-071 考勤采集器 | ✅ | `7b1487b`；`test_attendance_collector.py` 4 项 |
+| V2-072 考勤入库与编排 | ✅ | `6516722`；`test_models` / `test_orchestrator` 考勤断言 |
+| V2-073 日报考勤段与 API | ✅ | `08585a6`；个人/团队考勤段 + `/api/attendance` |
+| V2-074 前端考勤页 | ✅ | `d4007a0`；`npm run build` 通过 |
+| V2-075 全量回归与 tag | ✅ | 本次提交；73 passed + tag `v2-superpowers` |
 
 **当前验证命令**：
 
