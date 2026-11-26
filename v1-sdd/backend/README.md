@@ -59,7 +59,7 @@ cp .env.example .env    # 填入 GITHUB_TOKEN / 飞书 / SMTP / DB_PASSWORD
 | `SMTP_USER` / `SMTP_AUTH_CODE` / `REPORT_RECIPIENTS` | 发件邮箱、授权码、收件人 |
 | `DB_*` | MySQL 连接（本项目 3305） |
 
-> 飞书返回 `21001 Access denied due to platform policy` 时，通常不是环境变量问题，而是应用侧：检查应用是否已发布/启用、是否开通任务与消息权限、是否配置了 IP 白名单，以及 `app_secret` 是否已轮换。
+> 飞书 `21001 Access denied due to platform policy` 是**平台访问控制策略拒绝**（access denied by access control policy），不是缺 scope、不是 token 接口写错，也不是代码问题。最常见于**个人版租户 / 个人账号**创建的自建应用；需要企业租户（或已认证的个人组织账号），并由管理员在「安全 → 数据安全 → 应用权限管控」放行。可同时确认：应用已发布/启用、权限已审批、IP 白名单、`app_secret` 未被轮换。若仍无法解决，联系飞书支持并提供响应头里的 `x-tt-logid`。
 
 ### 2. 创建数据库与表（使用 SQL 文件）
 
