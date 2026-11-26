@@ -1,17 +1,36 @@
-"""FastAPI 应用入口：仅装配基础中间件与路由，业务功能后续按规范实现。"""
+"""FastAPI 应用入口：装配中间件、路由、建表与定时任务。"""
+
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import api_router
 from app.core.config import get_settings
+from app.core.logging import setup_logging
+from app.db.session import init_models
+from app.scheduler import start_scheduler, stop_scheduler
 
 settings = get_settings()
 
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    setup_logging()
+    if settings.auto_create_tables:
+        await init_models()
+    if settings.enable_scheduler:
+        start_scheduler()
+    yield
+    if settings.enable_scheduler:
+        stop_scheduler()
+
+
 app = FastAPI(
     title=settings.app_name,
-    version="0.1.0",
-    description="智能日报生成器 · 基础骨架（业务功能待实现）",
+    version="1.0.0",
+    description="智能日报生成器 · v1（SDD）",
+    lifespan=lifespan,
 )
 
 app.add_middleware(

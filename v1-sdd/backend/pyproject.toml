@@ -10,6 +10,8 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W", "UP", "B"]
+# B008：FastAPI 的 Depends/Query 必须写在默认参数里；E501：长行由人工控制
+ignore = ["B008", "E501"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

@@ -1,1 +1,12 @@
-"""接口出入参的 Pydantic 模型（待功能阶段实现）。"""
+"""请求/响应模型。"""
+
+from app.schemas.member import IdentityBind, MemberCreate
+from app.schemas.report import GenerateRequest, PushRequest, ReportUpdate
+
+__all__ = [
+    "GenerateRequest",
+    "IdentityBind",
+    "MemberCreate",
+    "PushRequest",
+    "ReportUpdate",
+]

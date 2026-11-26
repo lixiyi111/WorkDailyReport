@@ -49,20 +49,48 @@ class Settings(BaseSettings):
     db_name: str = "daily_report"
     db_charset: str = "utf8mb4"
 
+    # 可选：完整 SQLAlchemy URL（测试/演示可用 SQLite），为空时由 DB_* 拼接
+    database_url: str = ""
+
+    # 数据源与推送配置
+    github_repos: str = ""          # 逗号分隔：owner/repo
+    feishu_chat_ids: str = ""       # 逗号分隔的 chat_id
+    report_recipients: str = ""     # 逗号分隔的收件邮箱
+    feishu_report_chat_id: str = ""
+
+    # 运行开关
+    auto_create_tables: bool = True
+    enable_scheduler: bool = False
+    report_push_time: str = "09:00"
+
     @property
     def cors_origin_list(self) -> list[str]:
         """把逗号分隔的 CORS 来源解析为列表。"""
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
 
     @property
-    def database_url(self) -> str:
-        """拼接 SQLAlchemy 异步连接串（mysql + aiomysql）。"""
+    def sqlalchemy_url(self) -> str:
+        """返回 SQLAlchemy 连接串：优先 database_url，否则由 DB_* 拼接。"""
+        if self.database_url:
+            return self.database_url
         user = quote_plus(self.db_user)
         password = quote_plus(self.db_password)
         return (
             f"mysql+aiomysql://{user}:{password}@{self.db_host}:{self.db_port}/"
             f"{self.db_name}?charset={self.db_charset}"
         )
+
+    @property
+    def github_repo_list(self) -> list[str]:
+        return [r.strip() for r in self.github_repos.split(",") if r.strip()]
+
+    @property
+    def feishu_chat_id_list(self) -> list[str]:
+        return [c.strip() for c in self.feishu_chat_ids.split(",") if c.strip()]
+
+    @property
+    def report_recipient_list(self) -> list[str]:
+        return [e.strip() for e in self.report_recipients.split(",") if e.strip()]
 
 
 @lru_cache
