@@ -3,11 +3,13 @@ import {
   ArrowLeft,
   CalendarDays,
   CircleDot,
+  Download,
   GitCommitHorizontal,
   Hash,
   ListChecks,
   MessagesSquare,
   Pencil,
+  Send,
   User,
   Users,
 } from '@lucide/vue'
@@ -27,6 +29,7 @@ const draft = ref('')
 const saving = ref(false)
 const saveError = ref('')
 const savedNote = ref('')
+const pushNote = ref('')
 
 const rendered = computed(() => {
   if (!report.value?.content_md) return ''
@@ -100,6 +103,31 @@ async function saveReport() {
   } finally {
     saving.value = false
   }
+}
+
+async function pushReport() {
+  pushNote.value = ''
+  try {
+    const { data } = await client.post(`/reports/${route.params.id}/push`, {
+      channel: 'email',
+    })
+    pushNote.value = data.success ? '已发送邮件' : `推送失败：${data.error || '未知错误'}`
+  } catch {
+    pushNote.value = '推送失败'
+  }
+}
+
+function exportReport() {
+  if (!report.value) return
+  const blob = new Blob([report.value.content_md], {
+    type: 'text/markdown;charset=utf-8',
+  })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `${report.value.report_date}-${report.value.report_type}.md`
+  link.click()
+  URL.revokeObjectURL(url)
 }
 
 onMounted(loadReport)
@@ -210,6 +238,12 @@ watch(() => route.params.id, loadReport)
             <span class="mono count">{{ counts.message }}</span>
           </li>
         </ul>
+
+        <div class="card-actions">
+          <button class="btn" @click="pushReport"><Send :size="14" :stroke-width="1.5" />推送邮件</button>
+          <button class="btn" @click="exportReport"><Download :size="14" :stroke-width="1.5" />导出</button>
+        </div>
+        <p v-if="pushNote" class="saved-note">{{ pushNote }}</p>
 
         <RouterLink class="text-link" to="/reports">
           <ArrowLeft :size="14" :stroke-width="1.5" />

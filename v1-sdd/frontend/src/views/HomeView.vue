@@ -4,7 +4,7 @@ import {
   FileText,
   GitCommitHorizontal,
   ListChecks,
-  Users,
+  ListTree,
 } from '@lucide/vue'
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
@@ -30,34 +30,31 @@ const loading = ref(true)
 const error = ref('')
 const health = ref(null)
 const reports = ref([])
+const dashboard = ref(null)
 
-const personalReports = computed(() =>
-  reports.value.filter((report) => report.report_type === 'personal'),
-)
 const latestTeam = computed(
   () => reports.value.find((report) => report.report_type === 'team') ?? null,
 )
 
 const stats = computed(() => {
-  const sum = (key) =>
-    personalReports.value.reduce((acc, report) => acc + (report.summary?.[key] ?? 0), 0)
+  const work = dashboard.value?.work_records ?? {}
+  const reportStatus = dashboard.value?.report_status ?? {}
+  const todayReports =
+    (reportStatus.personal?.total ?? 0) + (reportStatus.team?.total ?? 0)
   return [
+    { label: '今日记录', value: work.total ?? 0, meta: '采集总量', icon: ListTree },
     {
-      label: '团队日报',
-      value: reports.value.filter((report) => report.report_type === 'team').length,
-      meta: '已生成',
-      icon: FileText,
+      label: '今日提交',
+      value: work.commits ?? 0,
+      meta: 'GitHub',
+      icon: GitCommitHorizontal,
     },
-    {
-      label: '个人日报',
-      value: personalReports.value.length,
-      meta: '含草稿',
-      icon: Users,
-    },
-    { label: '提交', value: sum('commits'), meta: '近 3 天', icon: GitCommitHorizontal },
-    { label: '任务', value: sum('tasks'), meta: '近 3 天', icon: ListChecks },
+    { label: '今日任务', value: work.tasks ?? 0, meta: '飞书', icon: ListChecks },
+    { label: '今日日报', value: todayReports, meta: '个人 + 团队', icon: FileText },
   ]
 })
+
+const taskStatus = computed(() => dashboard.value?.task_status ?? {})
 
 const recentReports = computed(() => reports.value.slice(0, 5))
 
@@ -100,12 +97,14 @@ async function load() {
   loading.value = true
   error.value = ''
   try {
-    const [healthResponse, reportsResponse] = await Promise.all([
+    const [healthResponse, reportsResponse, dashboardResponse] = await Promise.all([
       client.get('/health'),
       client.get('/reports'),
+      client.get('/dashboard'),
     ])
     health.value = healthResponse.data
     reports.value = reportsResponse.data
+    dashboard.value = dashboardResponse.data
   } catch {
     error.value = '无法加载工作台数据，请确认后端服务已启动'
   } finally {
@@ -136,6 +135,13 @@ onMounted(load)
           <div class="stat-value mono">{{ stat.value }}</div>
           <div class="stat-meta">{{ stat.meta }}</div>
         </div>
+      </div>
+
+      <div class="task-strip">
+        <span class="task-strip-label">今日任务状态</span>
+        <span class="tag">完成 {{ taskStatus.done ?? 0 }}</span>
+        <span class="tag">进行中 {{ taskStatus.in_progress ?? 0 }}</span>
+        <span class="tag">阻塞 {{ taskStatus.blocked ?? 0 }}</span>
       </div>
 
       <RouterLink v-if="latestTeam" :to="`/reports/${latestTeam.id}`" class="card report-preview">

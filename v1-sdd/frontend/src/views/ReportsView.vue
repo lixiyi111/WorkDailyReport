@@ -1,5 +1,5 @@
 <script setup>
-import { ArrowRight, FileText, Pencil, User, Users } from '@lucide/vue'
+import { ArrowRight, FileText, Pencil, Play, User, Users } from '@lucide/vue'
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 
@@ -10,6 +10,9 @@ const error = ref('')
 const reports = ref([])
 const typeFilter = ref('all')
 const dateFilter = ref('')
+const generateDate = ref(new Date().toISOString().slice(0, 10))
+const generating = ref(false)
+const notice = ref('')
 
 const filtered = computed(() =>
   reports.value.filter((report) => {
@@ -63,6 +66,24 @@ async function loadReports() {
   }
 }
 
+async function generateReports() {
+  generating.value = true
+  notice.value = ''
+  try {
+    const { data } = await client.post('/reports/generate', {
+      report_date: generateDate.value,
+      demo: false,
+      push: false,
+    })
+    notice.value = `生成完成：${data.personal_reports} 份个人日报，${data.items} 条条目`
+    await loadReports()
+  } catch {
+    notice.value = '生成失败，请检查数据源配置'
+  } finally {
+    generating.value = false
+  }
+}
+
 onMounted(loadReports)
 </script>
 
@@ -73,6 +94,19 @@ onMounted(loadReports)
       <h1 class="page-title">日报记录</h1>
       <p class="page-sub">按日期查看团队与成员日报</p>
     </header>
+
+    <div class="toolbar">
+      <label class="field field--inline">
+        <span>日报日期</span>
+        <input v-model="generateDate" type="date" class="input" />
+      </label>
+      <button class="btn" :disabled="generating" @click="generateReports">
+        <Play :size="14" :stroke-width="1.5" />
+        {{ generating ? '生成中' : '生成日报' }}
+      </button>
+      <span v-if="notice" class="saved-note">{{ notice }}</span>
+      <span class="muted">生成不会自动推送</span>
+    </div>
 
     <div class="stat-row">
       <div v-for="stat in summaryStats" :key="stat.label" class="stat-tile">

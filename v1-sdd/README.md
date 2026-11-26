@@ -76,9 +76,16 @@ npm run dev
 
 访问 http://localhost:5173：
 
-- `/` 数据源与凭证状态
+- `/` 工作台
+- `/sources` 数据源配置、连接测试、手动采集
+- `/records` 工作数据（提交 / 任务 / 消息）
 - `/reports` 日报列表
-- `/reports/:id` 日报详情 / 编辑
+- `/reports/:id` 日报详情 / 编辑 / 推送
+- `/members` 成员管理与身份绑定
+- `/push` 推送记录
+- `/runs` 运行日志
+- `/attendance` 考勤（当前 Mock）
+- `/settings` 系统设置
 
 ## 本地演示（不连 MySQL）
 
@@ -92,6 +99,8 @@ python -m scripts.demo
 ## 说明
 
 - 飞书暂用 Mock：`.env` 中 `FEISHU_USE_MOCK=true`，GitHub 仍走真实采集；飞书 21001 修复后改为 `false`，并填 `FEISHU_CHAT_IDS` / `FEISHU_REPORT_CHAT_ID`。
+- 考勤当前用 Mock 数据；真实飞书考勤接入后替换采集器。
+- 当前为演示环境，未启用登录鉴权；成员 / 组长 / 导师权限为后续项。
 - `.env` 已被 git 忽略，只提交 `.env.example`。
 - 测试与静态检查：
 
