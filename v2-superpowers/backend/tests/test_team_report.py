@@ -1,8 +1,9 @@
 """V2-023：团队日报四段式与跨成员去重。"""
 
-from datetime import date
+from datetime import date, datetime
 
 from app.services.attribution import AttributedItem
+from app.services.collectors.attendance import AttendanceRecord
 from app.services.reports.personal import PersonalReportGenerator
 from app.services.reports.team import TeamReportGenerator
 
@@ -67,3 +68,29 @@ def test_team_report_without_members() -> None:
     assert "0 人" in team.content_md
     assert "无成员数据" in team.content_md
     assert team.summary["members"] == 0
+
+
+def test_team_report_attendance_summary() -> None:
+    reports = [_personal(1, "王芳"), _personal(2, "李四")]
+    attendance = {
+        1: AttendanceRecord(
+            member_external_id="ou_1",
+            attendance_date=REPORT_DATE,
+            status="normal",
+            check_in_at=datetime(2026, 11, 6, 1, 0),
+            check_out_at=datetime(2026, 11, 6, 10, 0),
+        ),
+        2: AttendanceRecord(
+            member_external_id="ou_2",
+            attendance_date=REPORT_DATE,
+            status="leave",
+            check_in_at=None,
+            check_out_at=None,
+        ),
+    }
+    team = TeamReportGenerator().generate(
+        report_date=REPORT_DATE,
+        personal_reports=reports,
+        attendance_by_member=attendance,
+    )
+    assert "考勤：正常 1 · 迟到 0 · 请假 1 · 缺勤 0" in team.content_md

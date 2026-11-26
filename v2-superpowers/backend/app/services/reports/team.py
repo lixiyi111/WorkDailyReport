@@ -4,13 +4,18 @@ from __future__ import annotations
 
 from datetime import date
 
+from app.services.collectors.attendance import AttendanceRecord
 from app.services.reports.renderer import render_document
 from app.services.reports.types import GeneratedReport
 
 
 class TeamReportGenerator:
     def generate(
-        self, *, report_date: date, personal_reports: list[GeneratedReport]
+        self,
+        *,
+        report_date: date,
+        personal_reports: list[GeneratedReport],
+        attendance_by_member: dict[int, AttendanceRecord] | None = None,
     ) -> GeneratedReport:
         ordered = sorted(
             personal_reports,
@@ -40,6 +45,22 @@ class TeamReportGenerator:
             f"- 任务：{tasks}",
             f"- 消息：{messages}",
         ]
+        attendance_counts = {"normal": 0, "late": 0, "leave": 0, "absent": 0}
+        for record in (attendance_by_member or {}).values():
+            if record.status == "normal":
+                attendance_counts["normal"] += 1
+            elif record.status in ("late", "early"):
+                attendance_counts["late"] += 1
+            elif record.status in ("leave", "holiday"):
+                attendance_counts["leave"] += 1
+            elif record.status == "absent":
+                attendance_counts["absent"] += 1
+        overview_lines.append(
+            f"- 考勤：正常 {attendance_counts['normal']} · "
+            f"迟到 {attendance_counts['late']} · "
+            f"请假 {attendance_counts['leave']} · "
+            f"缺勤 {attendance_counts['absent']}"
+        )
         if ordered:
             member_lines = [
                 f"- {report.member_name or '未知成员'}："

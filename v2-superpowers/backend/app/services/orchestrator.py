@@ -36,6 +36,7 @@ from app.models.entities import (
     utcnow,
 )
 from app.services.attribution import AttributedItem, AttributionEngine, RawRecord
+from app.services.collectors.attendance import AttendanceRecord
 from app.services.identity import IdentityResolver
 from app.services.pushers.base import PushResult
 from app.services.reports.personal import PersonalReportGenerator
@@ -134,11 +135,14 @@ class DailyReportOrchestrator:
 
             records = await self._build_records(window)
             attributed: list[AttributedItem] = AttributionEngine().attribute(records)
+            attendance_by_member = await self._build_attendance_map(report_date)
             personal_reports = await self._generate_personal(
-                report_date, attributed
+                report_date, attributed, attendance_by_member
             )
             team_report = TeamReportGenerator().generate(
-                report_date=report_date, personal_reports=personal_reports
+                report_date=report_date,
+                personal_reports=personal_reports,
+                attendance_by_member=attendance_by_member,
             )
 
             for report in personal_reports:
@@ -584,8 +588,33 @@ class DailyReportOrchestrator:
 
         return records
 
+    async def _build_attendance_map(
+        self, report_date: date
+    ) -> dict[int, AttendanceRecord]:
+        rows = (
+            await self.session.scalars(
+                select(AttendanceRecordRow).where(
+                    AttendanceRecordRow.attendance_date == report_date
+                )
+            )
+        ).all()
+        return {
+            row.member_id: AttendanceRecord(
+                member_external_id="",
+                attendance_date=row.attendance_date,
+                status=row.status,
+                check_in_at=row.check_in_at,
+                check_out_at=row.check_out_at,
+                source_id=row.source_id,
+            )
+            for row in rows
+        }
+
     async def _generate_personal(
-        self, report_date: date, attributed: list[AttributedItem]
+        self,
+        report_date: date,
+        attributed: list[AttributedItem],
+        attendance_by_member: dict[int, AttendanceRecord],
     ) -> list[GeneratedReport]:
         members = (
             await self.session.scalars(
@@ -605,6 +634,7 @@ class DailyReportOrchestrator:
                 member_name=member.name,
                 report_date=report_date,
                 items=by_member.get(member.id, []),
+                attendance=attendance_by_member.get(member.id),
             )
             for member in members
         ]

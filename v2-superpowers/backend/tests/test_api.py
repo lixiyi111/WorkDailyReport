@@ -5,6 +5,8 @@ from datetime import date
 from sqlalchemy import select
 
 from app.models.entities import (
+    AppUser,
+    AttendanceRecord,
     DailyReport,
     IdentityUnmatched,
     Member,
@@ -14,6 +16,7 @@ from app.models.entities import (
     ReportVersion,
     SourceSyncState,
 )
+from app.services.auth import hash_password
 
 
 async def _seed_reports(session):
@@ -163,3 +166,47 @@ async def test_sources_status_and_push_logs(session, admin_client) -> None:
     logs = await admin_client.get("/api/push-logs")
     assert logs.status_code == 200
     assert logs.json()[0]["channel"] == "console"
+
+
+async def test_attendance_api_member_scope(session, admin_client, client) -> None:
+    member = Member(name="王芳", email="wang@example.com")
+    other = Member(name="李四", email="li@example.com")
+    session.add_all([member, other])
+    await session.flush()
+    session.add_all(
+        [
+            AttendanceRecord(
+                member_id=member.id,
+                attendance_date=date(2026, 11, 6),
+                status="normal",
+            ),
+            AttendanceRecord(
+                member_id=other.id,
+                attendance_date=date(2026, 11, 6),
+                status="late",
+            ),
+        ]
+    )
+    session.add(
+        AppUser(
+            username="member",
+            password_hash=hash_password("member123"),
+            role="member",
+            member_id=member.id,
+        )
+    )
+    await session.commit()
+
+    admin_response = await admin_client.get("/api/attendance?date=2026-11-06")
+    assert admin_response.status_code == 200
+    assert len(admin_response.json()) == 2
+
+    login = await client.post(
+        "/api/auth/login",
+        json={"username": "member", "password": "member123"},
+    )
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+    mine = await client.get("/api/attendance?date=2026-11-06", headers=headers)
+    assert mine.status_code == 200
+    assert len(mine.json()) == 1
+    assert mine.json()[0]["member_id"] == member.id

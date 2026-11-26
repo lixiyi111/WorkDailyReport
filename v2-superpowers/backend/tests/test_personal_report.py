@@ -3,6 +3,7 @@
 from datetime import date, datetime
 
 from app.services.attribution import AttributedItem
+from app.services.collectors.attendance import AttendanceRecord
 from app.services.reports.personal import PersonalReportGenerator
 
 REPORT_DATE = date(2026, 11, 6)
@@ -81,3 +82,33 @@ def test_personal_report_is_deterministic() -> None:
         member_id=1, member_name="王芳", report_date=REPORT_DATE, items=ITEMS
     )
     assert first.content_md == second.content_md
+
+
+def test_personal_report_contains_attendance() -> None:
+    attendance = AttendanceRecord(
+        member_external_id="ou_1",
+        attendance_date=REPORT_DATE,
+        status="late",
+        check_in_at=datetime(2026, 11, 6, 1, 30),
+        check_out_at=datetime(2026, 11, 6, 10, 30),
+    )
+    report = PersonalReportGenerator().generate(
+        member_id=1,
+        member_name="王芳",
+        report_date=REPORT_DATE,
+        items=ITEMS,
+        attendance=attendance,
+    )
+
+    assert "## 考勤" in report.content_md
+    assert "状态：迟到" in report.content_md
+    assert "上班：09:30" in report.content_md
+    assert "下班：18:30" in report.content_md
+
+
+def test_personal_report_without_attendance() -> None:
+    report = PersonalReportGenerator().generate(
+        member_id=1, member_name="王芳", report_date=REPORT_DATE, items=ITEMS
+    )
+    assert "## 考勤" in report.content_md
+    assert "无考勤记录" in report.content_md

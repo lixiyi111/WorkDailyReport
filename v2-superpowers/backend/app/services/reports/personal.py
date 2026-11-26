@@ -2,11 +2,29 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import UTC, date, datetime
+from zoneinfo import ZoneInfo
 
 from app.services.attribution import AttributedItem
+from app.services.collectors.attendance import AttendanceRecord
 from app.services.reports.renderer import render_document
 from app.services.reports.types import GeneratedReport
+
+_STATUS_LABELS = {
+    "normal": "正常",
+    "late": "迟到",
+    "early": "早退",
+    "absent": "缺勤",
+    "leave": "请假",
+    "holiday": "节假日",
+}
+_SHANGHAI = ZoneInfo("Asia/Shanghai")
+
+
+def _format_local(value: datetime | None) -> str:
+    if value is None:
+        return "—"
+    return value.replace(tzinfo=UTC).astimezone(_SHANGHAI).strftime("%H:%M")
 
 
 class PersonalReportGenerator:
@@ -17,6 +35,7 @@ class PersonalReportGenerator:
         member_name: str | None,
         report_date: date,
         items: list[AttributedItem],
+        attendance: AttendanceRecord | None = None,
     ) -> GeneratedReport:
         ordered = sorted(
             items,
@@ -47,6 +66,7 @@ class PersonalReportGenerator:
                 "协作贡献",
                 [self._render_line(item) for item in collab] or ["- 无"],
             ),
+            ("考勤", self._attendance_lines(attendance)),
             ("问题与阻塞", ["- 暂未发现阻塞（可手工补充）"]),
             ("明日计划", ["- 待补充（可手工编辑）"]),
         ]
@@ -73,6 +93,16 @@ class PersonalReportGenerator:
     @staticmethod
     def _render_line(item: AttributedItem) -> str:
         return f"- [{item.source_type}] {item.title}（{item.attribution_role}）"
+
+    @staticmethod
+    def _attendance_lines(attendance: AttendanceRecord | None) -> list[str]:
+        if attendance is None:
+            return ["- 无考勤记录"]
+        return [
+            f"- 状态：{_STATUS_LABELS.get(attendance.status, attendance.status)}",
+            f"- 上班：{_format_local(attendance.check_in_at)}",
+            f"- 下班：{_format_local(attendance.check_out_at)}",
+        ]
 
     @staticmethod
     def _distinct_count(items: list[AttributedItem], source_type: str) -> int:
