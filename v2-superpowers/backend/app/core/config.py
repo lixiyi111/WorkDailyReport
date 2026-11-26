@@ -29,10 +29,16 @@ class Settings(BaseSettings):
     # GitHub 数据源（只读个人访问令牌）
     github_token: str = ""
     github_api_base: str = "https://api.github.com"
+    github_repos: str = ""  # 逗号分隔：owner/repo
 
     # 飞书开放平台（自建应用）
     feishu_app_id: str = ""
     feishu_app_secret: str = ""
+    feishu_base_url: str = "https://open.feishu.cn"
+    feishu_use_mock: bool = False
+    mock_member_emails: str = ""
+    feishu_chat_ids: str = ""
+    feishu_report_chat_id: str = ""
 
     # 邮件推送（SMTP）
     smtp_host: str = "smtp.qq.com"
@@ -40,6 +46,7 @@ class Settings(BaseSettings):
     smtp_user: str = ""
     smtp_auth_code: str = ""
     smtp_from_name: str = "智能日报"
+    report_recipients: str = ""
 
     # 存储（MySQL）
     db_host: str = "127.0.0.1"
