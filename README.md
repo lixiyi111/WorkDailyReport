@@ -31,7 +31,7 @@ WorkDailyReport/
 conda activate work_daily
 cd v1-sdd/backend
 pip install -r requirements-dev.txt      # 首次
-python -m scripts.init_db                # 首次，创建 MySQL 表
+mysql -h 127.0.0.1 -P 3305 -u root -p < sql/schema.sql   # 首次，建库建表
 uvicorn app.main:app --reload --port 8000
 ```
 

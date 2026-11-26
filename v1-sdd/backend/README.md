@@ -49,18 +49,19 @@ backend/
 cp .env.example .env    # 填入 GITHUB_TOKEN / 飞书 / SMTP / DB_PASSWORD
 ```
 
-### 2. 创建 MySQL 数据库
+### 2. 创建数据库与表（使用 SQL 文件）
 
-```sql
-CREATE DATABASE daily_report DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```bash
+mysql -h 127.0.0.1 -P 3305 -u root -p < sql/schema.sql
 ```
 
-### 3. 安装与初始化
+`sql/schema.sql` 会创建 `daily_report` 库与 12 张表。`.env` 中 `AUTO_CREATE_TABLES=false`，应用启动不会自动建表。
+
+### 3. 安装依赖
 
 ```bash
 conda activate work_daily
 pip install -r requirements-dev.txt
-python -m scripts.init_db
 ```
 
 ### 4. 启动

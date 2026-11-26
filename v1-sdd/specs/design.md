@@ -251,7 +251,7 @@ CREATE TABLE report_versions (
 CREATE TABLE push_logs (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   report_id BIGINT UNSIGNED NOT NULL,
-  channel ENUM('email','feishu') NOT NULL,
+  channel ENUM('email','feishu','console') NOT NULL,
   target VARCHAR(255) NOT NULL,
   status ENUM('success','failed') NOT NULL,
   attempt INT NOT NULL DEFAULT 1,
