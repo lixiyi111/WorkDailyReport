@@ -204,3 +204,57 @@ flowchart LR
 | R7 | V2-070–V2-072 | 变更涟漪评审：规范同步、回归、tag |
 
 评审意见必须逐条回应或修复；未回应的意见不得进入下一阶段。
+
+## 7. 执行进度（第 3 周）
+
+> 状态：✅ 完成　⚠️ 部分　⬜ 未开始
+> 每个任务对应一次提交；测试与验证命令见“证据”列。
+
+| 任务 | 状态 | 证据 |
+|------|------|------|
+| V2-001 工程与配置 | ✅ | `ce930eb`；`test_config.py` |
+| V2-002 数据库模型与会话 | ✅ | `710bc9b`；`test_models.py` 3 项 |
+| V2-003 共享契约与工具 | ✅ | `e78b7df`；`test_timeutil/contracts/logging/retry` 8 项 |
+| V2-010 GitHub 采集 | ✅ | `4e86094`；`test_github_collector.py` 4 项 |
+| V2-011 飞书任务采集 | ✅ | `afd7962`；`test_feishu_tasks.py` 4 项 |
+| V2-012 飞书消息采集 | ✅ | `82684d7`；`test_feishu_messages.py` 5 项 |
+| V2-013 Mock 采集 | ✅ | `f2f339b`；`test_mock_collector.py` 3 项 |
+| V2-020 身份解析 | ✅ | `56621b1`；`test_identity.py` 4 项 |
+| V2-021 协作归属 | ✅ | `a739853`；`test_attribution.py` 3 项 |
+| V2-022 个人日报 | ✅ | `b6323a3`；`test_personal_report.py` 3 项 |
+| V2-023 团队日报 | ✅ | `f27302d`；`test_team_report.py` 3 项 |
+| V2-024 Markdown 渲染 | ✅ | `94efc89`；`test_renderer.py` |
+| V2-030 邮件推送 | ✅ | `91b09d0`；`test_email_pusher.py` 3 项 |
+| V2-031 飞书机器人推送 | ✅ | `6119610`；`test_feishu_pusher.py` 2 项 |
+| V2-032 控制台推送 | ✅ | `3d459df`；`test_console_pusher.py` |
+| V2-040 编排器 | ✅ | `edeca0e`；`test_orchestrator.py` 3 项 |
+| V2-041 定时调度 | ✅ | `eae754e`；`test_scheduler.py` |
+| V2-050 REST API | ✅ | `d63059f`；`test_api.py` 5 项 |
+| V2-051 认证与可见范围 | ✅ | `f12483e`；`test_auth.py` 5 项 |
+| V2-052 前端骨架 | ✅ | `72d2fb2`；`npm run build` 通过 |
+| V2-053 日报页面 | ✅ | `bf33b9e`；构建通过 + API 联调 |
+| V2-054 管理页面 | ✅ | `50e754c`；构建通过 |
+| V2-060 单元测试 | ✅ | 随各任务提交；`pytest -q` → 65 passed |
+| V2-061 集成测试 | ✅ | `test_orchestrator_end_to_end`、`test_orchestrator_rerun_idempotent` |
+| V2-062 验收核对 | ✅ | `docs/验收核对表.md`；3 人端到端 0.088s |
+| V2-063 运行手册 | ✅ | `v2-superpowers/README.md` |
+| V2-064 功能对齐核对 | ✅ | `docs/功能对齐表.md` |
+| V2-070 考勤变更 | ⬜ | 等第 4 周变更单 |
+| V2-071 回归测试 | ⬜ | 依赖 V2-070 |
+| V2-072 规范审计/tag | ⬜ | 依赖 V2-071 |
+
+**当前验证命令**：
+
+```bash
+cd v2-superpowers/backend
+pytest -q          # 65 passed
+ruff check .       # All checks passed
+
+cd ../frontend
+npm run build      # 成功
+
+# 后端运行在 8001 时
+cd ../backend
+python -m scripts.verify_e2e http://127.0.0.1:8001/api
+```
+
