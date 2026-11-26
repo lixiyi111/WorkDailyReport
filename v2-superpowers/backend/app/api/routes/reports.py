@@ -6,12 +6,13 @@ from dataclasses import asdict
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.db.session import get_session
 from app.models.entities import (
+    AppUser,
     DailyReport,
     Member,
     PushLog,
@@ -20,6 +21,7 @@ from app.models.entities import (
     utcnow,
 )
 from app.schemas.report import GenerateIn, PushIn, ReportEditIn
+from app.services.auth import get_current_user, require_roles
 from app.services.factory import build_collectors, build_pushers
 from app.services.orchestrator import DailyReportOrchestrator
 from app.services.reports.types import GeneratedReport
@@ -71,6 +73,7 @@ async def list_reports(
     date_: date | None = Query(None, alias="date"),
     report_type: str | None = None,
     member_id: int | None = None,
+    user: AppUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> list[dict]:
     stmt = (
@@ -78,6 +81,13 @@ async def list_reports(
         .outerjoin(Member, DailyReport.member_id == Member.id)
         .order_by(DailyReport.report_date.desc(), DailyReport.id)
     )
+    if user.role == "member":
+        stmt = stmt.where(
+            or_(
+                DailyReport.report_type == "team",
+                DailyReport.member_id == user.member_id,
+            )
+        )
     if date_ is not None:
         stmt = stmt.where(DailyReport.report_date == date_)
     if report_type is not None:
@@ -104,6 +114,7 @@ async def list_reports(
 @router.post("/generate")
 async def generate_reports(
     body: GenerateIn,
+    _manager: AppUser = Depends(require_roles("admin", "leader")),
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     settings = get_settings()
@@ -120,11 +131,19 @@ async def generate_reports(
 
 @router.get("/{report_id}")
 async def get_report(
-    report_id: int, session: AsyncSession = Depends(get_session)
+    report_id: int,
+    user: AppUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
 ) -> dict:
     report = await session.get(DailyReport, report_id)
     if report is None:
         raise HTTPException(status_code=404, detail="日报不存在")
+    if (
+        user.role == "member"
+        and report.report_type == "personal"
+        and report.member_id != user.member_id
+    ):
+        raise HTTPException(status_code=403, detail="无权查看该日报")
     return await _detail(session, report)
 
 
@@ -132,6 +151,7 @@ async def get_report(
 async def edit_report(
     report_id: int,
     body: ReportEditIn,
+    _manager: AppUser = Depends(require_roles("admin", "leader")),
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     report = await session.get(DailyReport, report_id)
@@ -158,6 +178,7 @@ async def edit_report(
 async def push_report(
     report_id: int,
     body: PushIn,
+    _manager: AppUser = Depends(require_roles("admin", "leader")),
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     report = await session.get(DailyReport, report_id)

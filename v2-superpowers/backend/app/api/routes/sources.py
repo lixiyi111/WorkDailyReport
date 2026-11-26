@@ -7,13 +7,15 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
-from app.models.entities import PushLog, SourceSyncState
+from app.models.entities import AppUser, PushLog, SourceSyncState
+from app.services.auth import require_roles
 
 router = APIRouter(tags=["sources"])
 
 
 @router.get("/sources/status")
 async def sources_status(
+    _manager: AppUser = Depends(require_roles("admin", "leader")),
     session: AsyncSession = Depends(get_session),
 ) -> list[dict]:
     rows = (
@@ -39,6 +41,7 @@ async def sources_status(
 
 @router.get("/push-logs")
 async def push_logs(
+    _manager: AppUser = Depends(require_roles("admin", "leader")),
     session: AsyncSession = Depends(get_session),
 ) -> list[dict]:
     rows = (

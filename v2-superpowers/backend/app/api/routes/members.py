@@ -8,14 +8,16 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
-from app.models.entities import Member, MemberIdentity
+from app.models.entities import AppUser, Member, MemberIdentity
 from app.schemas.member import IdentityBindIn
+from app.services.auth import require_roles
 
 router = APIRouter(prefix="/members", tags=["members"])
 
 
 @router.get("")
 async def list_members(
+    _manager: AppUser = Depends(require_roles("admin", "leader")),
     session: AsyncSession = Depends(get_session),
 ) -> list[dict]:
     members = (
@@ -37,6 +39,7 @@ async def list_members(
 async def bind_identity(
     member_id: int,
     body: IdentityBindIn,
+    _manager: AppUser = Depends(require_roles("admin", "leader")),
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     member = await session.get(Member, member_id)

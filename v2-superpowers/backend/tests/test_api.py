@@ -2,12 +2,8 @@
 
 from datetime import date
 
-import httpx
-import pytest_asyncio
 from sqlalchemy import select
 
-from app.db.session import get_session
-from app.main import app
 from app.models.entities import (
     DailyReport,
     IdentityUnmatched,
@@ -18,18 +14,6 @@ from app.models.entities import (
     ReportVersion,
     SourceSyncState,
 )
-
-
-@pytest_asyncio.fixture
-async def client(session):
-    async def override_session():
-        yield session
-
-    app.dependency_overrides[get_session] = override_session
-    transport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://test") as http:
-        yield http
-    app.dependency_overrides.clear()
 
 
 async def _seed_reports(session):
@@ -75,14 +59,14 @@ async def _seed_reports(session):
     return member, personal, team
 
 
-async def test_reports_list_and_detail(session, client) -> None:
+async def test_reports_list_and_detail(session, admin_client) -> None:
     _, personal, _ = await _seed_reports(session)
 
-    response = await client.get("/api/reports")
+    response = await admin_client.get("/api/reports")
     assert response.status_code == 200
     assert len(response.json()) == 2
 
-    detail = await client.get(f"/api/reports/{personal.id}")
+    detail = await admin_client.get(f"/api/reports/{personal.id}")
     assert detail.status_code == 200
     data = detail.json()
     assert data["content_md"] == "# 王芳 · 个人日报"
@@ -90,10 +74,10 @@ async def test_reports_list_and_detail(session, client) -> None:
     assert data["items"][0]["title"] == "修复登录接口"
 
 
-async def test_edit_creates_version(session, client) -> None:
+async def test_edit_creates_version(session, admin_client) -> None:
     _, personal, _ = await _seed_reports(session)
 
-    response = await client.put(
+    response = await admin_client.put(
         f"/api/reports/{personal.id}",
         json={"content_md": "# 修订版", "editor": "王芳", "change_note": "手工修订"},
     )
@@ -111,12 +95,12 @@ async def test_edit_creates_version(session, client) -> None:
     assert version is not None
 
 
-async def test_member_identity_binding(session, client) -> None:
+async def test_member_identity_binding(session, admin_client) -> None:
     member = Member(name="李四", email="li@example.com")
     session.add(member)
     await session.commit()
 
-    response = await client.post(
+    response = await admin_client.post(
         f"/api/members/{member.id}/identities",
         json={
             "provider": "github",
@@ -133,7 +117,7 @@ async def test_member_identity_binding(session, client) -> None:
     assert identity.member_id == member.id
 
 
-async def test_unmatched_identity_list(session, client) -> None:
+async def test_unmatched_identity_list(session, admin_client) -> None:
     session.add(
         IdentityUnmatched(
             provider="github",
@@ -145,14 +129,14 @@ async def test_unmatched_identity_list(session, client) -> None:
     )
     await session.commit()
 
-    response = await client.get("/api/identities/unmatched")
+    response = await admin_client.get("/api/identities/unmatched")
     assert response.status_code == 200
     body = response.json()
     assert len(body) == 1
     assert body[0]["external_id"] == "gh-x"
 
 
-async def test_sources_status_and_push_logs(session, client) -> None:
+async def test_sources_status_and_push_logs(session, admin_client) -> None:
     _, personal, _ = await _seed_reports(session)
     session.add(
         SourceSyncState(
@@ -172,10 +156,10 @@ async def test_sources_status_and_push_logs(session, client) -> None:
     )
     await session.commit()
 
-    sources = await client.get("/api/sources/status")
+    sources = await admin_client.get("/api/sources/status")
     assert sources.status_code == 200
     assert sources.json()[0]["source"] == "github"
 
-    logs = await client.get("/api/push-logs")
+    logs = await admin_client.get("/api/push-logs")
     assert logs.status_code == 200
     assert logs.json()[0]["channel"] == "console"

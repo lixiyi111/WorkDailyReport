@@ -48,6 +48,18 @@ class Settings(BaseSettings):
     smtp_from_name: str = "智能日报"
     report_recipients: str = ""
 
+    # 认证（JWT）
+    auth_secret: str = "change-me-in-env-please-set-a-32-byte-secret"
+    access_token_expire_minutes: int = 480
+    auth_admin_username: str = "admin"
+    auth_admin_password: str = "admin123"
+    auth_leader_username: str = "leader"
+    auth_leader_password: str = "leader123"
+    auth_member_username: str = "member"
+    auth_member_password: str = "member123"
+    auth_member_id: int | None = None
+    auto_create_tables: bool = False
+
     # 存储（MySQL）
     db_host: str = "127.0.0.1"
     db_port: int = 3305

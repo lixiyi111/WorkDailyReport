@@ -7,13 +7,15 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
-from app.models.entities import IdentityUnmatched
+from app.models.entities import AppUser, IdentityUnmatched
+from app.services.auth import require_roles
 
 router = APIRouter(prefix="/identities", tags=["identities"])
 
 
 @router.get("/unmatched")
 async def list_unmatched(
+    _manager: AppUser = Depends(require_roles("admin", "leader")),
     session: AsyncSession = Depends(get_session),
 ) -> list[dict]:
     rows = (
