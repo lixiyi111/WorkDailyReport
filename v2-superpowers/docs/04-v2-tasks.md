@@ -48,9 +48,12 @@ flowchart LR
   V061 --> V062[V2-062 验收核对]
   V050 --> V063[V2-063 运行手册]
   V062 --> V064[V2-064 功能对齐核对]
-  V040 --> V070[V2-070 考勤变更]
-  V070 --> V071[V2-071 回归]
-  V071 --> V072[V2-072 规范审计/tag]
+  V040 --> V070[V2-070 变更单/规范]
+  V070 --> V071[V2-071 考勤采集]
+  V071 --> V072[V2-072 入库/编排]
+  V072 --> V073[V2-073 日报/API]
+  V073 --> V074[V2-074 前端]
+  V074 --> V075[V2-075 回归/tag]
 ```
 
 ## 2. 任务总表
@@ -117,13 +120,16 @@ flowchart LR
 | V2-063 | 运行手册 | `README.md`、`docs/运行手册.md` | 建库、配置、启动、演示、测试可复现 | V2-050 | 1h | P8 |
 | V2-064 | 功能对齐核对 | `docs/功能对齐表.md` | 对照 v1 实际功能列出差异与补齐决定 | V2-062 | 1h | P8 |
 
-### 阶段 H：第 4 周变更涟漪（等变更单到达后启动）
+### 阶段 H：第 4 周变更涟漪（考勤采集）
 
 | 编号 | 标题 | 交付物 | 验收标准 | 依赖 | 预估 | 并行组 |
 |------|------|--------|----------|------|------|--------|
-| V2-070 | 考勤数据采集 | `services/collectors/attendance.py`、日报考勤段 | 变更单要求：新增考勤源、日报含考勤、规范同步 | V2-040 | 2h | P9 |
-| V2-071 | 回归测试 | `tests/test_regression.py` | v2 全功能 + 考勤全量通过 | V2-070 | 2h | P9 |
-| V2-072 | 规范审计与 tag | `docs/规范审计.md`、tag `v2-superpowers` | 代码与规范一致；审计记录完整 | V2-071 | 1h | P9 |
+| V2-070 | 变更单与规范同步 | 变更单、确认记录、specs、v2 docs | 变更单与规范逐条一致 | V2-064 | 2h | P9 |
+| V2-071 | 考勤采集器 | `services/collectors/attendance.py` | Mock/真实两条路径；按成员+日期聚合；限流 partial | V2-003 | 2h | P9 |
+| V2-072 | 考勤入库与编排 | `models/entities.py`、`services/orchestrator.py` | `(member_id, attendance_date)` 幂等；未归属写未匹配表 | V2-040、V2-071 | 2h | P9 |
+| V2-073 | 日报考勤段与 API | `reports/personal.py`、`team.py`、`api/routes/attendance.py` | 个人五段式；团队汇总；`GET /api/attendance` | V2-072 | 2h | P9 |
+| V2-074 | 前端考勤页 | `AttendanceView.vue`、路由/导航 | 按日期查看；member 只看本人 | V2-073 | 1.5h | P9 |
+| V2-075 | 全量回归与 tag | 测试、验收表、tag `v2-superpowers` | 旧 65 项 + 新增考勤测试全绿 | V2-074 | 2h | P9 |
 
 ## 3. 并行组说明
 
@@ -239,9 +245,12 @@ flowchart LR
 | V2-062 验收核对 | ✅ | `docs/验收核对表.md`；3 人端到端 0.088s |
 | V2-063 运行手册 | ✅ | `v2-superpowers/README.md` |
 | V2-064 功能对齐核对 | ✅ | `docs/功能对齐表.md` |
-| V2-070 考勤变更 | ⬜ | 等第 4 周变更单 |
-| V2-071 回归测试 | ⬜ | 依赖 V2-070 |
-| V2-072 规范审计/tag | ⬜ | 依赖 V2-071 |
+| V2-070 变更单与规范同步 | ⬜ | 变更单 06/07/08 + specs + v2 docs |
+| V2-071 考勤采集器 | ⬜ | `collectors/attendance.py` |
+| V2-072 考勤入库与编排 | ⬜ | `attendance_records` + orchestrator |
+| V2-073 日报考勤段与 API | ⬜ | 五段式 + `/api/attendance` |
+| V2-074 前端考勤页 | ⬜ | `AttendanceView.vue` |
+| V2-075 全量回归与 tag | ⬜ | 回归 + `v2-superpowers` tag |
 
 **当前验证命令**：
 

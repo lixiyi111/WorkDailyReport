@@ -21,6 +21,7 @@ rectangle "智能日报生成器" {
   usecase "配置数据源" as UC10
   usecase "处理无数据/缺勤" as UC11
   usecase "降级生成" as UC12
+  usecase "采集飞书考勤" as UC13
 }
 
 Member --> UC8
@@ -34,11 +35,13 @@ Mentor --> UC8
 Scheduler --> UC1
 Scheduler --> UC2
 Scheduler --> UC3
+Scheduler --> UC13
 Scheduler --> UC5
 
 UC5 ..> UC1 : <<include>>
 UC5 ..> UC2 : <<include>>
 UC5 ..> UC3 : <<include>>
+UC5 ..> UC13 : <<include>>
 UC6 ..> UC5 : <<include>>
 UC7 ..> UC6 : <<include>>
 UC11 ..> UC5 : <<extend>>

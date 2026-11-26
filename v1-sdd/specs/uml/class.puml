@@ -82,10 +82,20 @@ package "领域实体" {
     +attempt: int
     +errorMessage: str
   }
+
+  class AttendanceRecord {
+    +memberExternalId: str
+    +attendanceDate: date
+    +status: str
+    +checkInAt: datetime
+    +checkOutAt: datetime
+    +sourceId: str
+  }
 }
 
 Member "1" -- "0..*" MemberIdentity
 Member "1" -- "0..*" DailyReport
+Member "1" -- "0..*" AttendanceRecord
 Repository "1" -- "0..*" RawCommit
 MemberIdentity "1" -- "0..*" RawCommit
 MemberIdentity "1" -- "0..*" RawTask
@@ -107,6 +117,8 @@ package "服务接口" {
   class GitHubCollector
   class FeishuTaskCollector
   class FeishuMessageCollector
+  class FeishuAttendanceCollector
+  class MockAttendanceCollector
   class IdentityResolver
   class AttributionEngine
   class PersonalReportGenerator
@@ -119,6 +131,8 @@ package "服务接口" {
 GitHubCollector ..|> Collector
 FeishuTaskCollector ..|> Collector
 FeishuMessageCollector ..|> Collector
+FeishuAttendanceCollector ..|> Collector
+MockAttendanceCollector ..|> Collector
 EmailPusher ..|> Pusher
 FeishuBotPusher ..|> Pusher
 
@@ -130,6 +144,7 @@ DailyReportOrchestrator --> TeamReportGenerator
 DailyReportOrchestrator --> Pusher
 
 PersonalReportGenerator --> ReportItem
+PersonalReportGenerator --> AttendanceRecord
 TeamReportGenerator --> DailyReport
 
 @enduml

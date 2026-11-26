@@ -21,6 +21,7 @@ flowchart TB
     GH["GitHubCollector"]
     FT["FeishuTaskCollector"]
     FM["FeishuMessageCollector"]
+    FA["FeishuAttendanceCollector"]
   end
 
   subgraph 生成["生成层"]
@@ -42,9 +43,11 @@ flowchart TB
   ORC --> GH
   ORC --> FT
   ORC --> FM
+  ORC --> FA
   GH --> IDR
   FT --> IDR
   FM --> IDR
+  FA --> IDR
   IDR --> ATT
   ATT --> PGR
   PGR --> TGR
@@ -53,6 +56,7 @@ flowchart TB
   GH --> DB
   FT --> DB
   FM --> DB
+  FA --> DB
   IDR --> DB
   PGR --> DB
   TGR --> DB
@@ -80,6 +84,7 @@ flowchart TB
 | `GitHubCollector` | 采集指定仓库时间窗口内的 commit 及 PR/issue 关联，按 `(repo_id, sha)` 幂等 | S1、IR-2 |
 | `FeishuTaskCollector` | 采集飞书任务的创建与状态流转，按 `task_id` 幂等 | S2、IR-2 |
 | `FeishuMessageCollector` | 采集指定群的成员发言，按 `message_id` 幂等 | S3、IR-2 |
+| `FeishuAttendanceCollector` | 采集指定日期、成员的考勤状态与首末打卡时间，按 `(member_id, attendance_date)` 幂等 | S10、IR-11 |
 | `IdentityResolver` | 把 GitHub/飞书身份映射到成员，未命中写入未归属表 | S4、IR-1 |
 | `AttributionEngine` | 按角色规则把原始记录归属到成员，去重且不重复计数 | S5、IR-3 |
 | `PersonalReportGenerator` | 按任务/模块归类生成个人日报，处理「无产出」 | S5、IR-5 |
@@ -273,12 +278,29 @@ CREATE TABLE source_sync_state (
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   UNIQUE KEY uk_source_resource (source, resource_key)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE attendance_records (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  member_id BIGINT UNSIGNED NOT NULL,
+  attendance_date DATE NOT NULL,
+  status VARCHAR(16) NOT NULL COMMENT 'normal/late/early/absent/leave/holiday',
+  check_in_at DATETIME NULL,
+  check_out_at DATETIME NULL,
+  source VARCHAR(32) NOT NULL DEFAULT 'feishu',
+  source_id VARCHAR(128) NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_attendance_member_date (member_id, attendance_date),
+  KEY idx_attendance_date (attendance_date),
+  CONSTRAINT fk_attendance_member FOREIGN KEY (member_id) REFERENCES members(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 ```
 
 关键约束：
 
 - **幂等键**：`raw_commits(repo_id, sha)`、`raw_tasks(task_id)`、`raw_messages(message_id)`；
 - **日报唯一性**：`daily_reports(report_date, report_type, scope_key)`，团队日报的 `scope_key = 'team'`，避免 `member_id` 为 NULL 导致唯一键失效；
+- **考勤幂等键**：`attendance_records(member_id, attendance_date)`；同日多次打卡在采集层聚合为一条日记录，原始明细不落库；
 - **原始数据只读**：`raw_*` 表只做 upsert，不随日报编辑改变；
 - **版本留痕**：人工编辑写入 `report_versions`，`daily_reports.current_version` 指向当前版本。
 
@@ -332,6 +354,7 @@ class Collector(Protocol):
 | `GitHubCollector.collect` | `window` | `CollectionResult[RawCommit]` | 按仓库分页（100/页）；`403/429` 指数退避，最多 3 次；超时 15s；结果按 `(repo_id, sha)` 去重；`AUTH` 不可重试，`RATE_LIMIT/NETWORK` 可重试 |
 | `FeishuTaskCollector.collect` | `window` | `CollectionResult[RawTask]` | 先取 `tenant_access_token`，过期自动刷新；按 `task_id` upsert；限流时返回部分结果 |
 | `FeishuMessageCollector.collect` | `window` | `CollectionResult[RawMessage]` | 仅采集配置的 `chat_id`；按 `message_id` 去重；内容截断到 500 字并做隐私脱敏；以采集时快照为准，撤回/编辑不回溯 |
+| `FeishuAttendanceCollector.collect` | `window` | `CollectionResult[AttendanceRecord]` | 按成员+日期聚合；仅采集配置成员的考勤；限流/权限失败返回 partial；未映射身份写 `identity_unmatched` |
 
 ### 4.3 生成层
 
@@ -346,11 +369,13 @@ class AttributionEngine:
 
 class PersonalReportGenerator:
     def generate(self, member_id: int, report_date: date,
-                 items: list[AttributedItem]) -> DailyReport: ...
+                 items: list[AttributedItem],
+                 attendance: AttendanceRecord | None = None) -> DailyReport: ...
 
 class TeamReportGenerator:
     def generate(self, report_date: date,
-                 personal_reports: list[DailyReport]) -> DailyReport: ...
+                 personal_reports: list[DailyReport],
+                 attendance_by_member: dict[int, AttendanceRecord] | None = None) -> DailyReport: ...
 ```
 
 | 函数 | 关键规则 |
@@ -359,6 +384,8 @@ class TeamReportGenerator:
 | `AttributionEngine.attribute` | commit 作者 → `author`；PR reviewer → `reviewer`；任务负责人 → `owner`；任务参与人 → `participant`；群消息发送人 → `participant`；按 `(source_type, source_id, member_id, role)` 去重，不做比例拆分 |
 | `PersonalReportGenerator.generate` | 按任务/模块归类；无任何条目时输出「无产出」；「明日计划」取分配给本人的未完成任务，无则输出「待补充（可手工编辑）」；同一输入生成结果确定（稳定排序） |
 | `TeamReportGenerator.generate` | 不简单拼接：跨成员去重、生成团队概览统计；输出四段式模板 |
+| `PersonalReportGenerator.generate`（考勤） | 新增「考勤」段：状态 + 上班/下班时间；无记录输出「无考勤记录」 |
+| `TeamReportGenerator.generate`（考勤） | 团队概览增加考勤计数：正常/迟到/请假/缺勤；考勤不进入 `report_items` 归属去重 |
 
 ### 4.4 推送层
 
@@ -410,6 +437,7 @@ class DailyReportOrchestrator:
 | GET | `/api/identities/unmatched` | 查询未归属记录 |
 | GET | `/api/sources/status` | 数据源同步状态 |
 | GET | `/api/push-logs` | 推送记录 |
+| GET | `/api/attendance?date=` | 查询考勤；member 只能看本人 |
 
 统一错误码：`400 VALIDATION_ERROR`、`404 NOT_FOUND`、`409 CONFLICT`、`502 SOURCE_UNAVAILABLE`、`500 INTERNAL_ERROR`。
 
@@ -469,12 +497,22 @@ class DailyReportOrchestrator:
 - **理由**：与 FastAPI 同进程，部署简单；无需额外中间件；支持 cron 表达式。
 - **后果**：多实例部署会重复触发，v1 明确以单 worker 运行；后续扩展需替换为独立调度服务或加分布式锁。
 
+### ADR-007：考勤按「成员 + 日期」聚合
+
+- **状态**：已采纳
+- **背景**：飞书考勤返回的是打卡流水，而日报只需要一人一天的考勤结论。
+- **备选项**：保存全部打卡流水；按人天聚合；只存状态不存时间。
+- **决策**：按 `(member_id, attendance_date)` 聚合为一条日记录，保留最早上班、最晚下班。
+- **理由**：与日报粒度一致；天然幂等；查询简单。
+- **后果**：丢失同日中间打卡明细；如需审计需另建流水表。
+
 ## 6. 非功能性约束
 
 ### 6.1 采集频率与限流
 
 - GitHub：认证请求限额 5000 次/小时，且有二级限流；采集器按 1 请求/秒的令牌桶限速，`403/429` 指数退避（1s、2s、4s + 抖动），最多 3 次；
 - 飞书：按应用 QPS 限制，采集器按 5 请求/秒限速，超限退避；
+- 飞书考勤：按应用 QPS 限制退避；失败只标注考勤缺失，不影响日报主体；
 - 增量同步：通过 `source_sync_state.last_cursor` 记录游标，避免每次全量拉取。
 
 ### 6.2 密钥管理
@@ -504,6 +542,7 @@ class DailyReportOrchestrator:
 - 请求入参使用 Pydantic 校验；
 - CORS 仅允许 `localhost:5173` / `127.0.0.1:5173`；
 - 群消息只保存截断摘要与哈希，原始内容不落库，敏感内容脱敏；
+- 考勤只存状态与首末时间，不存定位、设备等敏感字段；
 - 消息摘要默认保留 90 天，超期清理；
 - 权限三级：成员 / 组长 / 导师。
 
@@ -537,3 +576,5 @@ class DailyReportOrchestrator:
 | IR-8 推送重试 | 两个 Pusher | `push_logs` |
 | IR-9 历史查询 | API | `daily_reports` |
 | IR-10 降级 | `Orchestrator` | `source_sync_state` |
+| S10 考勤采集 | `FeishuAttendanceCollector` | `attendance_records` |
+| IR-11 考勤幂等 | 采集器 + 编排器 | `attendance_records` 唯一键 |

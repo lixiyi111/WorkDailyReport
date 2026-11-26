@@ -123,6 +123,18 @@ entity "source_sync_state" as sync {
   status : ENUM
 }
 
+entity "attendance_records" as attendance {
+  * id : BIGINT <<PK>>
+  --
+  * member_id : BIGINT <<FK>>
+  * attendance_date : DATE
+  * status : VARCHAR(16)
+  check_in_at : DATETIME
+  check_out_at : DATETIME
+  source : VARCHAR(32)
+  source_id : VARCHAR(128)
+}
+
 members ||--o{ identities
 members ||--o{ reports
 members ||--o{ unmatched : resolved
@@ -133,5 +145,6 @@ identities ||--o{ messages
 reports ||--o{ items
 reports ||--o{ versions
 reports ||--o{ pushes
+members ||--o{ attendance
 
 @enduml
