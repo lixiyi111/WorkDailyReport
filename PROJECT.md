@@ -11,7 +11,7 @@
 | # | 类别 | 课程要求 | 验收方式 | 当前状态 |
 |---|------|----------|----------|----------|
 | 1 | 开发环境 | Python 3.12+、IntelliJ IDEA 或 VS Code、Git、uv 包管理器、SQLite（标准库 `sqlite3` 即可） | 本地跑通最小 Python 工程并完成首次提交 | ⚠️ 环境就绪；MySQL 密码待填，首次提交待办 |
-| 2 | 数据凭证 | GitHub 只读 PAT；飞书 `app_id` / `app_secret`；SMTP 邮箱及授权码 | 各完成一次只读接口调用，并出示环境变量配置（不显示值） | ⚠️ GitHub 可用，飞书 / 邮件待处理 |
+| 2 | 数据凭证 | GitHub 只读 PAT；飞书 `app_id` / `app_secret`；SMTP 邮箱及授权码 | 各完成一次只读接口调用，并出示环境变量配置（不显示值） | ⚠️ GitHub 可用、SMTP 已就绪；飞书待处理 |
 | 3 | AI 工具（主） | 教师指定的 Agentic CLI（如 Claude Code / Codex CLI 等） | 完成一次对话并导出会话记录 | ✅ 工具已确定（Claude Code）；导出记录待办 |
 | 4 | 协作环境 | 小组 Git 仓库、邀请组员、初始化 `specs/` 目录与分支规范 | 仓库地址报备教师，全员完成首次 push | ⏸ 暂缓（见文末） |
 | 5 | 绘图工具 | PlantUML 或 draw.io | 用工具导出一张示例用例图 | ⬜ 待确认 |
@@ -37,7 +37,7 @@
 |------|--------|----------|
 | GitHub 只读个人访问令牌 | `GITHUB_TOKEN` | ✅ `GET /user` 返回 HTTP 200 |
 | 飞书自建应用 | `FEISHU_APP_ID` / `FEISHU_APP_SECRET` | ⚠️ 换取 tenant_access_token 返回 `21001 Access denied due to platform policy`，需在飞书开放平台检查应用发布 / 权限 / IP 白名单 |
-| SMTP 测试邮箱及授权码 | `SMTP_USER` / `SMTP_AUTH_CODE` | ⚠️ 授权码已配置，`SMTP_USER`（发件邮箱地址）待补充 |
+| SMTP 测试邮箱及授权码 | `SMTP_USER` / `SMTP_AUTH_CODE` | ✅ 邮箱与授权码已配置，SMTP 登录验证通过 |
 
 - 真实值只写入各 `backend/.env`，该文件已被 [.gitignore](.gitignore) 忽略；仓库内只保留占位符 [.env.example](v1-sdd/backend/.env.example)。
 - 健康检查 `GET /api/health` 只输出三类凭证「是否就绪」的布尔值，不返回任何密钥内容。
@@ -60,8 +60,9 @@
 ## 三、第 0 周待办清单
 
 - [ ] `git init` 并完成首次提交
-- [ ] 配置 MySQL 连接（`DB_PASSWORD`）并创建 `daily_report` 数据库
-- [ ] 补充 `SMTP_USER`（授权码对应的 QQ 邮箱地址）
+- [x] 配置 MySQL 连接（127.0.0.1:3305 / root）
+- [ ] 启动 3305 端口 MySQL 并导入 `v1-sdd/backend/sql/schema.sql`
+- [x] 补充 `SMTP_USER`（授权码对应的 QQ 邮箱地址）
 - [ ] 处理飞书 `21001`（开放平台检查应用发布 / 权限 / IP 白名单）
 - [ ] 导出一次 AI 会话记录
 - [ ] 确认 PlantUML / draw.io 并导出示例用例图
