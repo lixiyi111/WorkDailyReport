@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import date, datetime
 
 from app.services.attribution import AttributedItem
+from app.services.reports.renderer import render_document
 from app.services.reports.types import GeneratedReport
 
 
@@ -37,25 +38,28 @@ class PersonalReportGenerator:
             if item.attribution_role in ("participant", "reviewer")
         ]
 
-        today_lines = self._render_lines(today, empty="- 无产出")
-        collab_lines = self._render_lines(collab, empty="- 无")
+        sections = [
+            (
+                "今日完成",
+                [self._render_line(item) for item in today] or ["- 无产出"],
+            ),
+            (
+                "协作贡献",
+                [self._render_line(item) for item in collab] or ["- 无"],
+            ),
+            ("问题与阻塞", ["- 暂未发现阻塞（可手工补充）"]),
+            ("明日计划", ["- 待补充（可手工编辑）"]),
+        ]
+        content = render_document(
+            f"{member_name or '成员'} · 个人日报（{report_date.isoformat()}）",
+            sections,
+        )
         summary = {
             "commits": self._distinct_count(ordered, "commit"),
             "tasks": self._distinct_count(ordered, "task"),
             "messages": self._distinct_count(ordered, "message"),
             "total": len(ordered),
         }
-        content = (
-            f"# {member_name or '成员'} · 个人日报（{report_date.isoformat()}）\n\n"
-            "## 今日完成\n"
-            f"{today_lines}\n\n"
-            "## 协作贡献\n"
-            f"{collab_lines}\n\n"
-            "## 问题与阻塞\n"
-            "- 暂未发现阻塞（可手工补充）\n\n"
-            "## 明日计划\n"
-            "- 待补充（可手工编辑）\n"
-        )
         return GeneratedReport(
             report_date=report_date,
             report_type="personal",
@@ -67,13 +71,8 @@ class PersonalReportGenerator:
         )
 
     @staticmethod
-    def _render_lines(items: list[AttributedItem], *, empty: str) -> str:
-        if not items:
-            return empty
-        return "\n".join(
-            f"- [{item.source_type}] {item.title}（{item.attribution_role}）"
-            for item in items
-        )
+    def _render_line(item: AttributedItem) -> str:
+        return f"- [{item.source_type}] {item.title}（{item.attribution_role}）"
 
     @staticmethod
     def _distinct_count(items: list[AttributedItem], source_type: str) -> int:

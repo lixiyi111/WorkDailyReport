@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import date
 
+from app.services.reports.renderer import render_document
 from app.services.reports.types import GeneratedReport
 
 
@@ -40,35 +41,28 @@ class TeamReportGenerator:
             f"- 消息：{messages}",
         ]
         if ordered:
-            member_lines = "\n".join(
+            member_lines = [
                 f"- {report.member_name or '未知成员'}："
                 f"{report.summary.get('commits', 0)} 提交 · "
                 f"{report.summary.get('tasks', 0)} 任务 · "
                 f"{report.summary.get('messages', 0)} 消息"
                 for report in ordered
-            )
+            ]
         else:
-            member_lines = "- 无成员数据"
+            member_lines = ["- 无成员数据"]
 
-        if collaboration:
-            collab_lines = "\n".join(
-                f"- [{key[0]}] {key[2]}（{key[3]}）：{'、'.join(sorted(names))}"
-                for key, names in sorted(collaboration.items())
-            )
-        else:
-            collab_lines = "- 无"
+        collab_lines = [
+            f"- [{key[0]}] {key[2]}（{key[3]}）：{'、'.join(sorted(names))}"
+            for key, names in sorted(collaboration.items())
+        ] or ["- 无"]
 
-        content = (
-            f"# 团队日报（{report_date.isoformat()}）\n\n"
-            "## 团队概览\n"
-            f"{chr(10).join(overview_lines)}\n\n"
-            "## 成员摘要\n"
-            f"{member_lines}\n\n"
-            "## 协作成果\n"
-            f"{collab_lines}\n\n"
-            "## 风险与阻塞\n"
-            "- 暂未发现阻塞（可手工补充）\n"
-        )
+        sections = [
+            ("团队概览", overview_lines),
+            ("成员摘要", member_lines),
+            ("协作成果", collab_lines),
+            ("风险与阻塞", ["- 暂未发现阻塞（可手工补充）"]),
+        ]
+        content = render_document(f"团队日报（{report_date.isoformat()}）", sections)
         summary = {
             "members": len(ordered),
             "commits": commits,
