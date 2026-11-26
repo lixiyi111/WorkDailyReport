@@ -128,7 +128,7 @@ onMounted(loadHealth)
         <dd>邮件 · 飞书机器人</dd>
       </div>
     </dl>
-    <p class="side-foot">日报列表与编辑页尚未接入</p>
+    <p class="side-foot">日报列表与编辑已接入 · 飞书暂用 Mock</p>
     <RouterLink class="text-link" to="/reports">查看全部日报</RouterLink>
   </section>
   </div>
