@@ -15,7 +15,7 @@ WorkDailyReport/
     └── frontend/
 ```
 
-> 当前为两套工程的**基础骨架**：只完成环境、配置与前后端连通，业务功能（采集 / 生成 / 推送 / 主编排）尚未实现。
+> v1 已实现采集 / 生成 / 推送 / 主编排的完整后端链路，可用 Mock 数据在本地跑通；v2 仍为骨架。真实 GitHub / 飞书 / SMTP / MySQL 需凭证就绪后复测。
 
 ## 技术栈
 
@@ -30,7 +30,15 @@ WorkDailyReport/
 ```bash
 conda activate work_daily
 cd v1-sdd/backend
+pip install -r requirements-dev.txt      # 首次
+python -m scripts.init_db                # 首次，创建 MySQL 表
 uvicorn app.main:app --reload --port 8000
+```
+
+本地演示（SQLite + Mock，无需外部凭证）：
+
+```bash
+python -m scripts.demo
 ```
 
 - 接口文档：http://127.0.0.1:8000/docs
