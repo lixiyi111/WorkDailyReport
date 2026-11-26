@@ -135,6 +135,84 @@ a {
   font-size: 12px;
 }
 
+.sidebar-user {
+  margin-bottom: 8px;
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.sidebar-logout {
+  display: inline-flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--secondary);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.sidebar-logout:hover {
+  background: var(--raised);
+  color: var(--ink);
+}
+
+.sidebar-version {
+  display: block;
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.login-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: var(--bg);
+}
+
+.login-card {
+  width: 100%;
+  max-width: 400px;
+  padding: 32px;
+}
+
+.login-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.login-title {
+  margin: 8px 0 4px;
+  color: var(--ink);
+  font-size: 28px;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.login-submit {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.login-hint {
+  margin: 16px 0 0;
+  font-size: 12px;
+}
+
+.field .input {
+  width: 100%;
+}
+
+.field--inline .input {
+  width: auto;
+}
+
 .app-header {
   height: 64px;
   padding: 0 32px;

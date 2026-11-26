@@ -4,7 +4,10 @@ import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 
 import client from '../api/client'
+import { useAuthStore } from '../stores/auth'
 
+const auth = useAuthStore()
+const canManage = computed(() => ['admin', 'leader'].includes(auth.role))
 const loading = ref(true)
 const error = ref('')
 const reports = ref([])
@@ -95,7 +98,7 @@ onMounted(loadReports)
       <p class="page-sub">按日期查看团队与成员日报</p>
     </header>
 
-    <div class="toolbar">
+    <div v-if="canManage" class="toolbar">
       <label class="field field--inline">
         <span>日报日期</span>
         <input v-model="generateDate" type="date" class="input" />

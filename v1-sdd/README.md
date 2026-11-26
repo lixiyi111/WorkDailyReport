@@ -63,6 +63,9 @@ cp .env.example .env      # 填入凭证；数据库默认 3305
 uvicorn app.main:app --reload --port 8000
 ```
 
+> **必须在 `work_daily` 环境运行。** `base` 环境是 Python 3.9，会出现
+> `TypeError: unsupported operand type(s) for |`；本项目要求 Python 3.12+。
+
 - API 文档：http://127.0.0.1:8000/docs
 - 健康检查：http://127.0.0.1:8000/api/health
 
@@ -86,6 +89,18 @@ npm run dev
 - `/runs` 运行日志
 - `/attendance` 考勤（当前 Mock）
 - `/settings` 系统设置
+
+## 登录与权限
+
+首次启动会按 `.env` 中的 `AUTH_*` 自动创建演示账号：
+
+| 角色 | 能做什么 |
+|------|----------|
+| **admin** | 全部功能，含系统设置与账号管理 |
+| **leader** | 数据源、工作数据、日报生成/编辑/推送、成员、推送、运行日志、考勤 |
+| **member** | 工作台、团队日报、本人个人日报、考勤 |
+
+具体用户名/密码见本地 `.env` 的 `AUTH_ADMIN_*` / `AUTH_LEADER_*` / `AUTH_MEMBER_*`；部署前请修改默认密码。
 
 ## 本地演示（不连 MySQL）
 

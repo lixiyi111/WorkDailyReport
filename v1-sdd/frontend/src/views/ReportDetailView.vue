@@ -19,8 +19,11 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 
 import client from '../api/client'
+import { useAuthStore } from '../stores/auth'
 
 const route = useRoute()
+const auth = useAuthStore()
+const canManage = computed(() => ['admin', 'leader'].includes(auth.role))
 const loading = ref(true)
 const error = ref('')
 const report = ref(null)
@@ -161,7 +164,7 @@ watch(() => route.params.id, loadReport)
             <h2 class="card-title">日报正文</h2>
             <p class="card-sub">Markdown · 可手工修订</p>
           </div>
-          <button v-if="!editing" class="btn" @click="startEdit">
+          <button v-if="!editing && canManage" class="btn" @click="startEdit">
             <Pencil :size="14" :stroke-width="1.5" />
             编辑
           </button>
@@ -240,7 +243,7 @@ watch(() => route.params.id, loadReport)
         </ul>
 
         <div class="card-actions">
-          <button class="btn" @click="pushReport"><Send :size="14" :stroke-width="1.5" />推送邮件</button>
+          <button v-if="canManage" class="btn" @click="pushReport"><Send :size="14" :stroke-width="1.5" />推送邮件</button>
           <button class="btn" @click="exportReport"><Download :size="14" :stroke-width="1.5" />导出</button>
         </div>
         <p v-if="pushNote" class="saved-note">{{ pushNote }}</p>
