@@ -198,7 +198,7 @@ CREATE TABLE identity_unmatched (
   resolved_member_id BIGINT UNSIGNED NULL,
   resolved_at DATETIME NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  KEY idx_unmatched_identity (provider, external_id),
+  UNIQUE KEY uk_unmatched (provider, external_id, source_type, source_id),
   CONSTRAINT fk_unmatched_member FOREIGN KEY (resolved_member_id) REFERENCES members(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -293,9 +293,13 @@ class TimeWindow:
     end: datetime    # 不含
     tz: str = "Asia/Shanghai"
 
+from typing import Generic, TypeVar
+
+T = TypeVar("T")
+
 @dataclass
-class CollectionResult:
-    items: list
+class CollectionResult(Generic[T]):
+    items: list[T]
     partial: bool = False
     errors: list[SourceError] = field(default_factory=list)
     cursor: str | None = None
@@ -311,7 +315,8 @@ class SourceError:
 约定：
 
 - 时间窗口为半开区间 `[start, end)`，跨零点按 `committed_at` / `sent_at` 归属；
-- 采集层**不抛业务异常**：单个数据源失败时通过 `partial=True` + `errors` 返回，只有凭证完全缺失才抛 `AuthError`；
+- 错误契约：只有凭证完全缺失才抛 `AuthError`；单数据源失败通过 `partial=True` + `errors` 返回，不中断整份日报；
+- 时间口径：数据库统一存 UTC（naive），窗口边界按 Asia/Shanghai 计算后转 UTC；展示时转回本地时区；
 - 所有写入使用自然键 upsert，重复采集不产生重复行。
 
 ### 4.2 采集层
@@ -326,7 +331,7 @@ class Collector(Protocol):
 |------|------|------|-------------------|
 | `GitHubCollector.collect` | `window` | `CollectionResult[RawCommit]` | 按仓库分页（100/页）；`403/429` 指数退避，最多 3 次；超时 15s；结果按 `(repo_id, sha)` 去重；`AUTH` 不可重试，`RATE_LIMIT/NETWORK` 可重试 |
 | `FeishuTaskCollector.collect` | `window` | `CollectionResult[RawTask]` | 先取 `tenant_access_token`，过期自动刷新；按 `task_id` upsert；限流时返回部分结果 |
-| `FeishuMessageCollector.collect` | `window` | `CollectionResult[RawMessage]` | 仅采集配置的 `chat_id`；按 `message_id` 去重；内容截断到 500 字并做隐私脱敏 |
+| `FeishuMessageCollector.collect` | `window` | `CollectionResult[RawMessage]` | 仅采集配置的 `chat_id`；按 `message_id` 去重；内容截断到 500 字并做隐私脱敏；以采集时快照为准，撤回/编辑不回溯 |
 
 ### 4.3 生成层
 
@@ -352,7 +357,7 @@ class TeamReportGenerator:
 |------|----------|
 | `IdentityResolver.resolve` | 优先级：已验证绑定 > 邮箱精确匹配 > 用户名精确匹配；全部未命中返回 `member_id=None` 并写入 `identity_unmatched` |
 | `AttributionEngine.attribute` | commit 作者 → `author`；PR reviewer → `reviewer`；任务负责人 → `owner`；任务参与人 → `participant`；群消息发送人 → `participant`；按 `(source_type, source_id, member_id, role)` 去重，不做比例拆分 |
-| `PersonalReportGenerator.generate` | 按任务/模块归类；无任何条目时输出「无产出」；同一输入生成结果确定（稳定排序） |
+| `PersonalReportGenerator.generate` | 按任务/模块归类；无任何条目时输出「无产出」；「明日计划」取分配给本人的未完成任务，无则输出「待补充（可手工编辑）」；同一输入生成结果确定（稳定排序） |
 | `TeamReportGenerator.generate` | 不简单拼接：跨成员去重、生成团队概览统计；输出四段式模板 |
 
 ### 4.4 推送层
@@ -388,6 +393,8 @@ class DailyReportOrchestrator:
 9. 持久化日报、条目、版本；
 10. 推送团队日报，写 `push_logs`；
 11. 更新 `source_sync_state`，返回 `RunSummary`。
+
+**并发与幂等**：进程内 `asyncio.Lock` 防止同一进程重入；`daily_reports` 唯一键 + upsert 保证重跑不重复；推送前检查 `push_logs` 中是否已有成功记录，避免重复发送；v1 以单 worker 运行（ADR-006）。
 
 ### 4.6 HTTP API
 
@@ -456,11 +463,11 @@ class DailyReportOrchestrator:
 ### ADR-006：定时调度采用 APScheduler（进程内）
 
 - **状态**：已采纳
-- **背景**：需要每日 18:30 触发生成与推送，v1 为单机本地运行。
+- **背景**：需要在次日 09:00 生成并推送前一自然日的日报，v1 为单机本地运行。
 - **备选项**：系统 cron / 计划任务、APScheduler、Celery + 消息队列。
 - **决策**：使用 APScheduler 进程内调度。
 - **理由**：与 FastAPI 同进程，部署简单；无需额外中间件；支持 cron 表达式。
-- **后果**：多实例部署会重复触发，v1 需保证单实例或加分布式锁；后续扩展需替换为独立调度服务。
+- **后果**：多实例部署会重复触发，v1 明确以单 worker 运行；后续扩展需替换为独立调度服务或加分布式锁。
 
 ## 6. 非功能性约束
 
@@ -496,7 +503,8 @@ class DailyReportOrchestrator:
 - ORM 参数化查询，禁止拼接 SQL；
 - 请求入参使用 Pydantic 校验；
 - CORS 仅允许 `localhost:5173` / `127.0.0.1:5173`；
-- 群消息只保存截断摘要与哈希，敏感内容脱敏；
+- 群消息只保存截断摘要与哈希，原始内容不落库，敏感内容脱敏；
+- 消息摘要默认保留 90 天，超期清理；
 - 权限三级：成员 / 组长 / 导师。
 
 ### 6.6 可维护性与兼容性
