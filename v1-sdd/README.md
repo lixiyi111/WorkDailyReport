@@ -32,7 +32,7 @@ v1-sdd/
 │   │   └── main.js
 │   ├── package.json
 │   └── vite.config.js
-├── docs/                    # 需求记录、AI 日志、评审单、验收表、技能笔记
+├── docs/                    # 需求记录、AI 日志、评审单、验收表、技能笔记、数据库 ER 图
 └── specs/                   # proposal / design / tasks + uml
 ```
 
