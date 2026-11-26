@@ -3,6 +3,7 @@
 import hashlib
 import json
 from datetime import UTC, datetime
+from typing import Any
 
 import httpx
 
@@ -64,40 +65,61 @@ class FeishuTaskCollector:
         async with httpx.AsyncClient(timeout=15.0) as client:
             try:
                 token = await self.client.tenant_token(client)
-                response = await client.get(
-                    f"{self.client.base_url}/open-apis/task/v2/tasks",
-                    headers={"Authorization": f"Bearer {token}"},
-                    params={"page_size": 50},
-                )
-                response.raise_for_status()
-                data = response.json()
-                if data.get("code") != 0:
-                    result.partial = True
-                    result.errors.append(
-                        SourceError(self.source, "API", f"code={data.get('code')} msg={data.get('msg')}")
+                page_token: str | None = None
+                for _ in range(20):
+                    params: dict[str, Any] = {"page_size": 50}
+                    if page_token:
+                        params["page_token"] = page_token
+                    response = await client.get(
+                        f"{self.client.base_url}/open-apis/task/v2/tasks",
+                        headers={"Authorization": f"Bearer {token}"},
+                        params=params,
                     )
-                    return result
-                for item in data.get("data", {}).get("items", []):
-                    changed = _ms_to_dt(item.get("updated_at") or item.get("completed_at"))
-                    created = _ms_to_dt(item.get("created_at"))
-                    if changed and not (window.start <= changed < window.end):
-                        if not (created and window.start <= created < window.end):
-                            continue
-                    members = item.get("members") or []
-                    owner = members[0] if members else {}
-                    result.items.append(
-                        RawTaskData(
-                            task_id=str(item.get("guid") or item.get("id")),
-                            title=item.get("summary") or "(无标题任务)",
-                            owner_external_id=str(owner.get("id")) if owner.get("id") else None,
-                            owner_name=owner.get("name"),
-                            owner_email=owner.get("email"),
-                            participants=[str(m.get("id")) for m in members[1:] if m.get("id")],
-                            status=str(item.get("status") or "open"),
-                            status_changed_at=changed,
-                            created_at_source=created,
+                    response.raise_for_status()
+                    data = response.json()
+                    if data.get("code") != 0:
+                        result.partial = True
+                        result.errors.append(
+                            SourceError(
+                                self.source,
+                                "API",
+                                f"code={data.get('code')} msg={data.get('msg')}",
+                            )
                         )
-                    )
+                        return result
+
+                    payload = data.get("data") or {}
+                    for item in payload.get("items") or []:
+                        changed = _ms_to_dt(item.get("updated_at") or item.get("completed_at"))
+                        created = _ms_to_dt(item.get("created_at"))
+                        if changed and not (window.start <= changed < window.end):
+                            if not (created and window.start <= created < window.end):
+                                continue
+                        members = item.get("members") or []
+                        owner = members[0] if members else {}
+                        result.items.append(
+                            RawTaskData(
+                                task_id=str(item.get("guid") or item.get("id")),
+                                title=item.get("summary") or "(无标题任务)",
+                                owner_external_id=(
+                                    str(owner.get("id")) if owner.get("id") else None
+                                ),
+                                owner_name=owner.get("name"),
+                                owner_email=owner.get("email"),
+                                participants=[
+                                    str(member.get("id"))
+                                    for member in members[1:]
+                                    if member.get("id")
+                                ],
+                                status=str(item.get("status") or "open"),
+                                status_changed_at=changed,
+                                created_at_source=created,
+                            )
+                        )
+
+                    page_token = payload.get("page_token")
+                    if not payload.get("has_more") or not page_token:
+                        break
             except AuthError as exc:
                 raise exc
             except Exception as exc:  # noqa: BLE001
@@ -126,42 +148,61 @@ class FeishuMessageCollector:
             try:
                 token = await self.client.tenant_token(client)
                 for chat_id in self.chat_ids:
-                    response = await client.get(
-                        f"{self.client.base_url}/open-apis/im/v1/messages",
-                        headers={"Authorization": f"Bearer {token}"},
-                        params={
+                    page_token: str | None = None
+                    for _ in range(20):
+                        params: dict[str, Any] = {
                             "container_id_type": "chat",
                             "container_id": chat_id,
-                            "start_time": int(window.start.replace(tzinfo=UTC).timestamp()),
-                            "end_time": int(window.end.replace(tzinfo=UTC).timestamp()),
+                            "start_time": int(
+                                window.start.replace(tzinfo=UTC).timestamp()
+                            ),
+                            "end_time": int(
+                                window.end.replace(tzinfo=UTC).timestamp()
+                            ),
                             "page_size": 50,
-                        },
-                    )
-                    response.raise_for_status()
-                    data = response.json()
-                    if data.get("code") != 0:
-                        result.partial = True
-                        result.errors.append(
-                            SourceError(
-                                self.source,
-                                "API",
-                                f"{chat_id}: code={data.get('code')} msg={data.get('msg')}",
-                            )
+                        }
+                        if page_token:
+                            params["page_token"] = page_token
+                        response = await client.get(
+                            f"{self.client.base_url}/open-apis/im/v1/messages",
+                            headers={"Authorization": f"Bearer {token}"},
+                            params=params,
                         )
-                        continue
-                    for item in data.get("data", {}).get("items", []):
-                        content = self._extract_text(item.get("body", {}).get("content"))
-                        result.items.append(
-                            RawMessageData(
-                                message_id=str(item.get("message_id")),
-                                chat_id=str(item.get("chat_id") or chat_id),
-                                sender_external_id=str((item.get("sender") or {}).get("id") or "") or None,
-                                sender_name=None,
-                                sender_email=None,
-                                sent_at=_ms_to_dt(item.get("create_time")) or window.start,
-                                content=content,
+                        response.raise_for_status()
+                        data = response.json()
+                        if data.get("code") != 0:
+                            result.partial = True
+                            result.errors.append(
+                                SourceError(
+                                    self.source,
+                                    "API",
+                                    f"{chat_id}: code={data.get('code')} msg={data.get('msg')}",
+                                )
                             )
-                        )
+                            break
+
+                        payload = data.get("data") or {}
+                        for item in payload.get("items") or []:
+                            content = self._extract_text(
+                                (item.get("body") or {}).get("content")
+                            )
+                            result.items.append(
+                                RawMessageData(
+                                    message_id=str(item.get("message_id")),
+                                    chat_id=str(item.get("chat_id") or chat_id),
+                                    sender_external_id=(
+                                        str((item.get("sender") or {}).get("id") or "") or None
+                                    ),
+                                    sender_name=None,
+                                    sender_email=None,
+                                    sent_at=_ms_to_dt(item.get("create_time")) or window.start,
+                                    content=content,
+                                )
+                            )
+
+                        page_token = payload.get("page_token")
+                        if not payload.get("has_more") or not page_token:
+                            break
             except AuthError as exc:
                 raise exc
             except Exception as exc:  # noqa: BLE001

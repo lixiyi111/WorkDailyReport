@@ -1,11 +1,19 @@
 """成员与身份绑定接口。"""
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.timeutil import now_utc
 from app.db.session import get_session
-from app.models import IdentityUnmatched, Member, MemberIdentity
+from app.models import (
+    IdentityUnmatched,
+    Member,
+    MemberIdentity,
+    RawCommit,
+    RawMessage,
+    RawTask,
+)
 from app.schemas import IdentityBind, MemberCreate
 
 router = APIRouter(tags=["members"])
@@ -70,6 +78,41 @@ async def bind_identity(
         verified=payload.verified,
     )
     session.add(identity)
+    await session.flush()
+
+    # 回填此前未归属的原始记录：按 unmatched 表里的 source_type/source_id 更新外键。
+    unmatched_rows = (
+        await session.execute(
+            select(IdentityUnmatched).where(
+                IdentityUnmatched.provider == payload.provider,
+                IdentityUnmatched.external_id == payload.external_id,
+                IdentityUnmatched.resolved_member_id.is_(None),
+            )
+        )
+    ).scalars().all()
+
+    for row in unmatched_rows:
+        if row.source_type == "commit":
+            await session.execute(
+                update(RawCommit)
+                .where(RawCommit.sha == row.source_id)
+                .values(author_identity_id=identity.id)
+            )
+        elif row.source_type == "task":
+            await session.execute(
+                update(RawTask)
+                .where(RawTask.task_id == row.source_id)
+                .values(owner_identity_id=identity.id)
+            )
+        elif row.source_type == "message":
+            await session.execute(
+                update(RawMessage)
+                .where(RawMessage.message_id == row.source_id)
+                .values(sender_identity_id=identity.id)
+            )
+        row.resolved_member_id = member_id
+        row.resolved_at = now_utc()
+
     await session.commit()
     await session.refresh(identity)
     return {
@@ -78,6 +121,7 @@ async def bind_identity(
         "provider": identity.provider,
         "external_id": identity.external_id,
         "verified": identity.verified,
+        "resolved_records": len(unmatched_rows),
     }
 
 

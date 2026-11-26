@@ -36,6 +36,14 @@ from app.services.reports.team import TeamReportGenerator
 DONE_STATUSES = ("done", "completed", "closed", "finished")
 BLOCKED_STATUSES = ("blocked", "blocked_by")
 
+# 进程内运行锁：API 每次请求都会新建 orchestrator，实例级锁无法跨请求生效。
+_run_locks: dict[int, asyncio.Lock] = {}
+
+
+def _get_run_lock() -> asyncio.Lock:
+    loop = asyncio.get_running_loop()
+    return _run_locks.setdefault(id(loop), asyncio.Lock())
+
 
 class DailyReportOrchestrator:
     def __init__(
@@ -54,10 +62,9 @@ class DailyReportOrchestrator:
         self.attribution = AttributionEngine()
         self.personal_gen = PersonalReportGenerator()
         self.team_gen = TeamReportGenerator()
-        self._lock = asyncio.Lock()
 
     async def run(self, report_date: date) -> dict:
-        async with self._lock:
+        async with _get_run_lock():
             start, end = natural_day_window_utc(report_date)
             window = TimeWindow(start=start, end=end)
             by_source, errors = await self._collect(window)

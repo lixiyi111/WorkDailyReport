@@ -1,16 +1,18 @@
 """成员与身份绑定请求模型。"""
 
-from pydantic import BaseModel
+from typing import Literal
+
+from pydantic import BaseModel, EmailStr
 
 
 class MemberCreate(BaseModel):
     name: str
-    email: str
-    role: str = "member"
+    email: EmailStr
+    role: Literal["member", "leader", "mentor"] = "member"
 
 
 class IdentityBind(BaseModel):
-    provider: str
+    provider: Literal["github", "feishu"]
     external_id: str
     external_username: str | None = None
     verified: bool = False

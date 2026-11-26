@@ -75,29 +75,38 @@ class GitHubCollector:
         window: TimeWindow,
         headers: dict[str, str],
     ) -> list[RawCommitData]:
-        response = await client.get(
-            f"{self.api_base}/repos/{repo}/commits",
-            headers=headers,
-            params={
-                "since": window.start.replace(tzinfo=UTC).isoformat().replace("+00:00", "Z"),
-                "until": window.end.replace(tzinfo=UTC).isoformat().replace("+00:00", "Z"),
-                "per_page": 100,
-            },
-        )
-        response.raise_for_status()
-        commits: list[RawCommitData] = []
-        for item in response.json():
-            commit = item.get("commit", {})
-            author = commit.get("author") or {}
-            commits.append(
-                RawCommitData(
+        commits: dict[str, RawCommitData] = {}
+        for page in range(1, 11):
+            response = await client.get(
+                f"{self.api_base}/repos/{repo}/commits",
+                headers=headers,
+                params={
+                    "since": window.start.replace(tzinfo=UTC).isoformat().replace("+00:00", "Z"),
+                    "until": window.end.replace(tzinfo=UTC).isoformat().replace("+00:00", "Z"),
+                    "per_page": 100,
+                    "page": page,
+                },
+            )
+            response.raise_for_status()
+            batch = response.json()
+            if not isinstance(batch, list) or not batch:
+                break
+            for item in batch:
+                commit = item.get("commit", {})
+                author = commit.get("author") or {}
+                committer = commit.get("committer") or author
+                date_value = committer.get("date") or author.get("date")
+                if not date_value:
+                    continue
+                commits[item["sha"]] = RawCommitData(
                     repo_full_name=repo,
                     sha=item["sha"],
                     author_name=author.get("name") or "unknown",
                     author_email=author.get("email"),
-                    committed_at=_parse_iso(author["date"]),
+                    committed_at=_parse_iso(date_value),
                     message=commit.get("message") or "",
                     url=item.get("html_url"),
                 )
-            )
-        return commits
+            if len(batch) < 100:
+                break
+        return list(commits.values())

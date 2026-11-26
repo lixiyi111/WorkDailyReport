@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     # 飞书开放平台（自建应用）
     feishu_app_id: str = ""
     feishu_app_secret: str = ""
+    feishu_base_url: str = "https://open.feishu.cn"
 
     # 邮件推送（SMTP）
     smtp_host: str = "smtp.qq.com"

@@ -7,10 +7,12 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
+from app.api.routes.members import bind_identity
 from app.core.config import Settings
 from app.core.timeutil import natural_day_window_utc
 from app.db.base import Base
-from app.models import DailyReport, IdentityUnmatched, Member
+from app.models import DailyReport, IdentityUnmatched, Member, RawCommit
+from app.schemas import IdentityBind
 from app.services.collectors.base import CollectionResult, RawCommitData, SourceError
 from app.services.orchestrator import DailyReportOrchestrator
 from app.services.pushers import ConsolePusher
@@ -78,3 +80,39 @@ async def test_degraded_source_and_unmatched_identity(session) -> None:
         await session.execute(select(func.count()).select_from(IdentityUnmatched))
     ).scalar_one()
     assert unmatched_count == 1
+
+
+@pytest.mark.asyncio
+async def test_bind_identity_backfills_and_regenerates(session) -> None:
+    member = Member(name="Alice", email="alice@example.com")
+    session.add(member)
+    await session.commit()
+
+    orchestrator = DailyReportOrchestrator(
+        session=session,
+        collectors=[DegradedCollector()],
+        pushers=[ConsolePusher()],
+        settings=Settings(_env_file=None),
+    )
+    await orchestrator.run(date(2026, 11, 25))
+
+    result = await bind_identity(
+        member.id,
+        IdentityBind(provider="github", external_id="unknown@example.com"),
+        session,
+    )
+    assert result["resolved_records"] == 1
+
+    commit = (await session.execute(select(RawCommit))).scalar_one()
+    assert commit.author_identity_id is not None
+
+    unmatched = (await session.execute(select(IdentityUnmatched))).scalar_one()
+    assert unmatched.resolved_member_id == member.id
+
+    await orchestrator.run(date(2026, 11, 25))
+    report = (
+        await session.execute(
+            select(DailyReport).where(DailyReport.report_type == "personal")
+        )
+    ).scalar_one()
+    assert "未归属的提交" in report.content_md

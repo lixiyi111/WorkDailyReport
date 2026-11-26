@@ -25,7 +25,7 @@ const health = ref(null)
 const connectionLabel = computed(() => {
   if (loading.value) return '正在检测'
   if (error.value) return '连接失败'
-  return '连接正常'
+  return '后端在线'
 })
 
 const sources = computed(() => {
@@ -54,6 +54,7 @@ onMounted(loadHealth)
 </script>
 
 <template>
+  <div class="page">
   <header class="page-head">
     <p class="page-kicker">
       <span class="brand-dot" aria-hidden="true"></span>
@@ -95,10 +96,13 @@ onMounted(loadHealth)
             :class="source.ready ? 'is-ready' : 'is-missing'"
             aria-hidden="true"
           ></span>
-          <span class="mono">{{ source.ready ? '已连接' : '未配置' }}</span>
+          <span class="mono">{{ source.ready ? '已配置' : '未配置' }}</span>
         </span>
       </li>
     </ul>
+    <p v-if="!loading && !error" class="source-note">
+      「已配置」表示环境变量已填写，实际连通性以采集结果为准
+    </p>
   </section>
 
   <section class="card card--note" aria-labelledby="note-title">
@@ -122,4 +126,5 @@ onMounted(loadHealth)
     </dl>
     <p class="side-foot">日报列表与编辑页尚未接入</p>
   </section>
+  </div>
 </template>

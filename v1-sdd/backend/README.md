@@ -49,6 +49,18 @@ backend/
 cp .env.example .env    # 填入 GITHUB_TOKEN / 飞书 / SMTP / DB_PASSWORD
 ```
 
+| 变量 | 说明 |
+|------|------|
+| `GITHUB_TOKEN` / `GITHUB_REPOS` | 只读令牌；数据源仓库，逗号分隔 `owner/repo` |
+| `FEISHU_APP_ID` / `FEISHU_APP_SECRET` | 自建应用凭证 |
+| `FEISHU_BASE_URL` | 默认 `https://open.feishu.cn`；Lark 国际版用 `https://open.larksuite.com` |
+| `FEISHU_CHAT_IDS` | 要采集的群 chat_id，逗号分隔 |
+| `FEISHU_REPORT_CHAT_ID` | 日报推送目标群 chat_id |
+| `SMTP_USER` / `SMTP_AUTH_CODE` / `REPORT_RECIPIENTS` | 发件邮箱、授权码、收件人 |
+| `DB_*` | MySQL 连接（本项目 3305） |
+
+> 飞书返回 `21001 Access denied due to platform policy` 时，通常不是环境变量问题，而是应用侧：检查应用是否已发布/启用、是否开通任务与消息权限、是否配置了 IP 白名单，以及 `app_secret` 是否已轮换。
+
 ### 2. 创建数据库与表（使用 SQL 文件）
 
 ```bash

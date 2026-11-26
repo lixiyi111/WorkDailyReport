@@ -23,7 +23,11 @@ def build_collectors(settings: Settings, *, demo: bool = False) -> list:
             MockFeishuTaskCollector(),
             MockFeishuMessageCollector(),
         ]
-    feishu = FeishuClient(settings.feishu_app_id, settings.feishu_app_secret)
+    feishu = FeishuClient(
+        settings.feishu_app_id,
+        settings.feishu_app_secret,
+        settings.feishu_base_url,
+    )
     return [
         GitHubCollector(settings.github_token, settings.github_api_base, settings.github_repo_list),
         FeishuTaskCollector(feishu),
@@ -44,7 +48,11 @@ def build_pushers(settings: Settings, *, demo: bool = False) -> list:
             )
         )
         pushers.append(
-            FeishuBotPusher(settings.feishu_app_id, settings.feishu_app_secret)
+            FeishuBotPusher(
+                settings.feishu_app_id,
+                settings.feishu_app_secret,
+                settings.feishu_base_url,
+            )
         )
     return pushers
 
