@@ -43,10 +43,10 @@ class Settings(BaseSettings):
 
     # 存储（MySQL）
     db_host: str = "127.0.0.1"
-    db_port: int = 3306
+    db_port: int = 3305
     db_user: str = "root"
     db_password: str = ""
-    db_name: str = "daily_report"
+    db_name: str = "daily_report_v2"
     db_charset: str = "utf8mb4"
 
     @property
