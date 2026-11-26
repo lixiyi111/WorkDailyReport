@@ -48,6 +48,15 @@ mysql -h 127.0.0.1 -P 3305 -u root -p -D daily_report_v2 < sql/demo_members.sql
 
 `demo_members.sql` 创建 3 个演示成员（王芳 / 李四 / 赵敏）与飞书 Mock 身份。
 
+> `schema.sql` 使用 `CREATE TABLE IF NOT EXISTS`，**可以重复执行**；已存在的表会被跳过，不会改动其结构。
+> 如需彻底重建（会删除 v2 的全部数据）：
+>
+> ```bash
+> mysql -h 127.0.0.1 -P 3305 -u root -p -e "DROP DATABASE IF EXISTS daily_report_v2"
+> mysql -h 127.0.0.1 -P 3305 -u root -p < sql/schema.sql
+> mysql -h 127.0.0.1 -P 3305 -u root -p -D daily_report_v2 < sql/demo_members.sql
+> ```
+
 ### 3. 后端
 
 ```bash

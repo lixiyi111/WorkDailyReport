@@ -30,6 +30,7 @@ def main() -> None:
     ]
     for table in Base.metadata.sorted_tables:
         ddl = str(CreateTable(table).compile(dialect=engine.dialect)).strip()
+        ddl = ddl.replace("CREATE TABLE ", "CREATE TABLE IF NOT EXISTS ", 1)
         lines.extend([ddl + ";", ""])
 
     output = Path(__file__).resolve().parents[1] / "sql" / "schema.sql"

@@ -5,7 +5,7 @@ CREATE DATABASE IF NOT EXISTS daily_report_v2
   DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE daily_report_v2;
 
-CREATE TABLE members (
+CREATE TABLE IF NOT EXISTS members (
 	id BIGINT NOT NULL AUTO_INCREMENT, 
 	name VARCHAR(64) NOT NULL, 
 	email VARCHAR(255) NOT NULL, 
@@ -17,7 +17,7 @@ CREATE TABLE members (
 	CONSTRAINT uk_members_email UNIQUE (email)
 );
 
-CREATE TABLE repositories (
+CREATE TABLE IF NOT EXISTS repositories (
 	id BIGINT NOT NULL AUTO_INCREMENT, 
 	owner VARCHAR(128) NOT NULL, 
 	name VARCHAR(128) NOT NULL, 
@@ -28,7 +28,7 @@ CREATE TABLE repositories (
 	CONSTRAINT uk_repo UNIQUE (owner, name)
 );
 
-CREATE TABLE source_sync_state (
+CREATE TABLE IF NOT EXISTS source_sync_state (
 	id BIGINT NOT NULL AUTO_INCREMENT, 
 	source VARCHAR(32) NOT NULL, 
 	resource_key VARCHAR(191) NOT NULL, 
@@ -41,7 +41,7 @@ CREATE TABLE source_sync_state (
 	CONSTRAINT uk_source_resource UNIQUE (source, resource_key)
 );
 
-CREATE TABLE app_users (
+CREATE TABLE IF NOT EXISTS app_users (
 	id BIGINT NOT NULL AUTO_INCREMENT, 
 	username VARCHAR(64) NOT NULL, 
 	password_hash VARCHAR(255) NOT NULL, 
@@ -55,7 +55,7 @@ CREATE TABLE app_users (
 	FOREIGN KEY(member_id) REFERENCES members (id)
 );
 
-CREATE TABLE daily_reports (
+CREATE TABLE IF NOT EXISTS daily_reports (
 	id BIGINT NOT NULL AUTO_INCREMENT, 
 	report_date DATE NOT NULL, 
 	report_type VARCHAR(16) NOT NULL, 
@@ -72,7 +72,7 @@ CREATE TABLE daily_reports (
 	FOREIGN KEY(member_id) REFERENCES members (id)
 );
 
-CREATE TABLE identity_unmatched (
+CREATE TABLE IF NOT EXISTS identity_unmatched (
 	id BIGINT NOT NULL AUTO_INCREMENT, 
 	provider VARCHAR(16) NOT NULL, 
 	external_id VARCHAR(128) NOT NULL, 
@@ -87,7 +87,7 @@ CREATE TABLE identity_unmatched (
 	FOREIGN KEY(resolved_member_id) REFERENCES members (id)
 );
 
-CREATE TABLE member_identities (
+CREATE TABLE IF NOT EXISTS member_identities (
 	id BIGINT NOT NULL AUTO_INCREMENT, 
 	member_id BIGINT NOT NULL, 
 	provider VARCHAR(16) NOT NULL, 
@@ -100,7 +100,7 @@ CREATE TABLE member_identities (
 	FOREIGN KEY(member_id) REFERENCES members (id)
 );
 
-CREATE TABLE push_logs (
+CREATE TABLE IF NOT EXISTS push_logs (
 	id BIGINT NOT NULL AUTO_INCREMENT, 
 	report_id BIGINT NOT NULL, 
 	channel VARCHAR(16) NOT NULL, 
@@ -113,7 +113,7 @@ CREATE TABLE push_logs (
 	FOREIGN KEY(report_id) REFERENCES daily_reports (id) ON DELETE CASCADE
 );
 
-CREATE TABLE raw_commits (
+CREATE TABLE IF NOT EXISTS raw_commits (
 	id BIGINT NOT NULL AUTO_INCREMENT, 
 	repo_id BIGINT NOT NULL, 
 	sha VARCHAR(40) NOT NULL, 
@@ -132,7 +132,7 @@ CREATE TABLE raw_commits (
 	FOREIGN KEY(author_identity_id) REFERENCES member_identities (id)
 );
 
-CREATE TABLE raw_messages (
+CREATE TABLE IF NOT EXISTS raw_messages (
 	id BIGINT NOT NULL AUTO_INCREMENT, 
 	message_id VARCHAR(128) NOT NULL, 
 	chat_id VARCHAR(128) NOT NULL, 
@@ -147,7 +147,7 @@ CREATE TABLE raw_messages (
 	FOREIGN KEY(sender_identity_id) REFERENCES member_identities (id)
 );
 
-CREATE TABLE raw_tasks (
+CREATE TABLE IF NOT EXISTS raw_tasks (
 	id BIGINT NOT NULL AUTO_INCREMENT, 
 	task_id VARCHAR(128) NOT NULL, 
 	title VARCHAR(512) NOT NULL, 
@@ -163,7 +163,7 @@ CREATE TABLE raw_tasks (
 	FOREIGN KEY(owner_identity_id) REFERENCES member_identities (id)
 );
 
-CREATE TABLE report_items (
+CREATE TABLE IF NOT EXISTS report_items (
 	id BIGINT NOT NULL AUTO_INCREMENT, 
 	report_id BIGINT NOT NULL, 
 	category VARCHAR(32) NOT NULL, 
@@ -178,7 +178,7 @@ CREATE TABLE report_items (
 	FOREIGN KEY(report_id) REFERENCES daily_reports (id) ON DELETE CASCADE
 );
 
-CREATE TABLE report_versions (
+CREATE TABLE IF NOT EXISTS report_versions (
 	id BIGINT NOT NULL AUTO_INCREMENT, 
 	report_id BIGINT NOT NULL, 
 	version INTEGER NOT NULL, 
