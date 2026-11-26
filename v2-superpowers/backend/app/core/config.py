@@ -39,6 +39,7 @@ class Settings(BaseSettings):
     mock_member_emails: str = ""
     feishu_chat_ids: str = ""
     feishu_report_chat_id: str = ""
+    feishu_attendance_user_ids: str = ""
 
     # 邮件推送（SMTP）
     smtp_host: str = "smtp.qq.com"

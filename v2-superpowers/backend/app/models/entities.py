@@ -295,6 +295,32 @@ class SourceSyncState(Base):
     )
 
 
+class AttendanceRecord(Base):
+    __tablename__ = "attendance_records"
+
+    id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, autoincrement=True)
+    member_id: Mapped[int] = mapped_column(
+        ID_TYPE, ForeignKey("members.id"), nullable=False
+    )
+    attendance_date: Mapped[date] = mapped_column(Date, nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    check_in_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    check_out_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    source: Mapped[str] = mapped_column(String(32), nullable=False, default="feishu")
+    source_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, default=utcnow, onupdate=utcnow
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "member_id", "attendance_date", name="uk_attendance_member_date"
+        ),
+        Index("idx_attendance_date", "attendance_date"),
+    )
+
+
 class AppUser(Base):
     __tablename__ = "app_users"
 

@@ -55,6 +55,22 @@ CREATE TABLE IF NOT EXISTS app_users (
 	FOREIGN KEY(member_id) REFERENCES members (id)
 );
 
+CREATE TABLE IF NOT EXISTS attendance_records (
+	id BIGINT NOT NULL AUTO_INCREMENT, 
+	member_id BIGINT NOT NULL, 
+	attendance_date DATE NOT NULL, 
+	status VARCHAR(16) NOT NULL, 
+	check_in_at DATETIME, 
+	check_out_at DATETIME, 
+	source VARCHAR(32) NOT NULL, 
+	source_id VARCHAR(128), 
+	created_at DATETIME NOT NULL, 
+	updated_at DATETIME NOT NULL, 
+	PRIMARY KEY (id), 
+	CONSTRAINT uk_attendance_member_date UNIQUE (member_id, attendance_date), 
+	FOREIGN KEY(member_id) REFERENCES members (id)
+);
+
 CREATE TABLE IF NOT EXISTS daily_reports (
 	id BIGINT NOT NULL AUTO_INCREMENT, 
 	report_date DATE NOT NULL, 

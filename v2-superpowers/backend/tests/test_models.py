@@ -11,6 +11,7 @@ from app.models.entities import DailyReport, RawCommit, Repository
 
 EXPECTED_TABLES = {
     "app_users",
+    "attendance_records",
     "daily_reports",
     "identity_unmatched",
     "member_identities",

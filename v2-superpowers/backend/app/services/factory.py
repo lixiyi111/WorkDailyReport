@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 from app.core.config import Settings
+from app.services.collectors.attendance import (
+    FeishuAttendanceCollector,
+    MockAttendanceCollector,
+)
 from app.services.collectors.feishu_messages import FeishuMessageCollector
 from app.services.collectors.feishu_tasks import FeishuTaskCollector
 from app.services.collectors.github import GitHubCollector, RepoSpec
@@ -37,6 +41,7 @@ def build_collectors(settings: Settings) -> CollectorSet:
         messages = MockFeishuMessageCollector(
             emails, chat_id=chat_ids[0] if chat_ids else "oc_mock"
         )
+        attendance = MockAttendanceCollector(emails)
     else:
         tasks = FeishuTaskCollector(
             settings.feishu_app_id,
@@ -49,6 +54,12 @@ def build_collectors(settings: Settings) -> CollectorSet:
             chat_ids=chat_ids,
             base_url=settings.feishu_base_url,
         )
+        attendance = FeishuAttendanceCollector(
+            settings.feishu_app_id,
+            settings.feishu_app_secret,
+            member_external_ids=_csv(settings.feishu_attendance_user_ids),
+            base_url=settings.feishu_base_url,
+        )
 
     if settings.github_token and repos:
         github = GitHubCollector(
@@ -59,7 +70,7 @@ def build_collectors(settings: Settings) -> CollectorSet:
     else:
         github = MockGitHubCollector(repos, emails)
 
-    return CollectorSet(github=github, tasks=tasks, messages=messages)
+    return CollectorSet(github=github, tasks=tasks, messages=messages, attendance=attendance)
 
 
 def build_pushers(settings: Settings) -> list:

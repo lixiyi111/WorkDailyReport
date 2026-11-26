@@ -19,6 +19,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.contracts import AuthError, CollectionResult, SourceError, TimeWindow
 from app.core.timeutil import day_window
 from app.models.entities import (
+    AttendanceRecord as AttendanceRecordRow,
+)
+from app.models.entities import (
     DailyReport,
     Member,
     MemberIdentity,
@@ -57,6 +60,7 @@ class CollectorSet:
     github: CollectorLike
     tasks: CollectorLike
     messages: CollectorLike
+    attendance: CollectorLike | None = None
 
 
 @dataclass(frozen=True)
@@ -67,6 +71,7 @@ class RunSummary:
     commits: int
     tasks: int
     messages: int
+    attendance: int
     items: int
     partial: bool
     errors: list[SourceError] = field(default_factory=list)
@@ -109,18 +114,23 @@ class DailyReportOrchestrator:
     async def _run(self, report_date: date, push: bool) -> RunSummary:
         window = day_window(report_date)
         try:
-            github, tasks, messages = await self._collect_all(window)
+            github, tasks, messages, attendance = await self._collect_all(window)
             errors: list[SourceError] = []
             errors.extend(github.errors)
             errors.extend(tasks.errors)
             errors.extend(messages.errors)
+            errors.extend(attendance.errors)
 
             commit_errors, commit_partial = await self._persist_commits(github.items)
             task_errors, task_partial = await self._persist_tasks(tasks.items)
             message_errors, message_partial = await self._persist_messages(messages.items)
+            attendance_errors, attendance_partial = await self._persist_attendance(
+                attendance.items
+            )
             errors.extend(commit_errors)
             errors.extend(task_errors)
             errors.extend(message_errors)
+            errors.extend(attendance_errors)
 
             records = await self._build_records(window)
             attributed: list[AttributedItem] = AttributionEngine().attribute(records)
@@ -154,6 +164,12 @@ class DailyReportOrchestrator:
                 messages.partial or message_partial,
                 errors,
             )
+            await self._update_sync_state(
+                "feishu_attendance",
+                report_date.isoformat(),
+                attendance.partial or attendance_partial,
+                errors,
+            )
             await self.session.commit()
 
             return RunSummary(
@@ -163,13 +179,16 @@ class DailyReportOrchestrator:
                 commits=len(github.items),
                 tasks=len(tasks.items),
                 messages=len(messages.items),
+                attendance=len(attendance.items),
                 items=len(attributed),
                 partial=github.partial
                 or tasks.partial
                 or messages.partial
+                or attendance.partial
                 or commit_partial
                 or task_partial
-                or message_partial,
+                or message_partial
+                or attendance_partial,
                 errors=errors,
                 pushed=pushed,
             )
@@ -179,18 +198,37 @@ class DailyReportOrchestrator:
 
     async def _collect_all(
         self, window: TimeWindow
-    ) -> tuple[CollectionResult, CollectionResult, CollectionResult]:
+    ) -> tuple[
+        CollectionResult,
+        CollectionResult,
+        CollectionResult,
+        CollectionResult,
+    ]:
         raw = await asyncio.gather(
-            self.collectors.github.collect(window),
-            self.collectors.tasks.collect(window),
-            self.collectors.messages.collect(window),
+            self._collect_one(self.collectors.github, window),
+            self._collect_one(self.collectors.tasks, window),
+            self._collect_one(self.collectors.messages, window),
+            self._collect_one(self.collectors.attendance, window),
             return_exceptions=True,
         )
-        sources = ("github", "feishu_tasks", "feishu_messages")
+        sources = (
+            "github",
+            "feishu_tasks",
+            "feishu_messages",
+            "feishu_attendance",
+        )
         normalized: list[CollectionResult] = []
         for source, result in zip(sources, raw, strict=True):
             normalized.append(self._normalize(result, source))
-        return normalized[0], normalized[1], normalized[2]
+        return normalized[0], normalized[1], normalized[2], normalized[3]
+
+    @staticmethod
+    async def _collect_one(
+        collector: CollectorLike | None, window: TimeWindow
+    ) -> CollectionResult:
+        if collector is None:
+            return CollectionResult(items=[])
+        return await collector.collect(window)
 
     @staticmethod
     def _normalize(result: object, source: str) -> CollectionResult:
@@ -385,6 +423,54 @@ class DailyReportOrchestrator:
                     sender_identity_id or existing.sender_identity_id
                 )
                 existing.content_excerpt = record.content_excerpt
+
+        await self.session.flush()
+        return errors, partial
+
+    async def _persist_attendance(
+        self, records: list
+    ) -> tuple[list[SourceError], bool]:
+        errors: list[SourceError] = []
+        partial = False
+
+        for record in records:
+            member_id = await self.resolver.resolve(
+                "feishu", record.member_external_id
+            )
+            if member_id is None:
+                await self.resolver.record_unmatched(
+                    "feishu",
+                    record.member_external_id,
+                    None,
+                    "attendance",
+                    record.source_id
+                    or f"{record.attendance_date.isoformat()}:{record.member_external_id}",
+                )
+                continue
+
+            existing = await self.session.scalar(
+                select(AttendanceRecordRow).where(
+                    AttendanceRecordRow.member_id == member_id,
+                    AttendanceRecordRow.attendance_date == record.attendance_date,
+                )
+            )
+            if existing is None:
+                self.session.add(
+                    AttendanceRecordRow(
+                        member_id=member_id,
+                        attendance_date=record.attendance_date,
+                        status=record.status,
+                        check_in_at=record.check_in_at,
+                        check_out_at=record.check_out_at,
+                        source="feishu",
+                        source_id=record.source_id,
+                    )
+                )
+            else:
+                existing.status = record.status
+                existing.check_in_at = record.check_in_at
+                existing.check_out_at = record.check_out_at
+                existing.source_id = record.source_id
 
         await self.session.flush()
         return errors, partial

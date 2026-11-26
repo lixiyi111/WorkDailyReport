@@ -6,6 +6,9 @@ from sqlalchemy import func, select
 
 from app.core.contracts import CollectionResult, SourceError
 from app.models.entities import (
+    AttendanceRecord as AttendanceRecordRow,
+)
+from app.models.entities import (
     DailyReport,
     Member,
     MemberIdentity,
@@ -13,6 +16,7 @@ from app.models.entities import (
     ReportItem,
     Repository,
 )
+from app.services.collectors.attendance import MockAttendanceCollector
 from app.services.collectors.github import RepoSpec
 from app.services.collectors.mock import (
     MockFeishuMessageCollector,
@@ -53,6 +57,7 @@ def _collectors() -> CollectorSet:
         github=MockGitHubCollector(repos, EMAILS),
         tasks=MockFeishuTaskCollector(EMAILS),
         messages=MockFeishuMessageCollector(EMAILS),
+        attendance=MockAttendanceCollector(EMAILS),
     )
 
 
@@ -70,8 +75,14 @@ async def test_orchestrator_end_to_end(session) -> None:
     assert summary.personal_reports == 2
     assert summary.team_reports == 1
     assert summary.commits == 2
+    assert summary.attendance == 2
     assert summary.partial is False
     assert outputs and "团队日报" in outputs[0]
+
+    attendance = await session.scalar(
+        select(func.count()).select_from(AttendanceRecordRow)
+    )
+    assert attendance == 2
 
     report_count = await session.scalar(select(func.count()).select_from(DailyReport))
     assert report_count == 3
@@ -93,16 +104,23 @@ async def test_orchestrator_rerun_idempotent(session) -> None:
     commits_first = await session.scalar(select(func.count()).select_from(RawCommit))
     reports_first = await session.scalar(select(func.count()).select_from(DailyReport))
     items_first = await session.scalar(select(func.count()).select_from(ReportItem))
+    attendance_first = await session.scalar(
+        select(func.count()).select_from(AttendanceRecordRow)
+    )
 
     second = await orchestrator.run(REPORT_DATE, push=False)
     commits_second = await session.scalar(select(func.count()).select_from(RawCommit))
     reports_second = await session.scalar(select(func.count()).select_from(DailyReport))
     items_second = await session.scalar(select(func.count()).select_from(ReportItem))
+    attendance_second = await session.scalar(
+        select(func.count()).select_from(AttendanceRecordRow)
+    )
 
     assert first.personal_reports == second.personal_reports == 2
     assert commits_first == commits_second == 2
     assert reports_first == reports_second == 3
     assert items_first == items_second
+    assert attendance_first == attendance_second == 2
 
 
 class _PartialGitHubCollector:
