@@ -1,0 +1,137 @@
+@startuml
+' 智能日报生成器 · ER 图（MySQL 8）
+hide circle
+skinparam linetype ortho
+
+entity "members" as members {
+  * id : BIGINT <<PK>>
+  --
+  * name : VARCHAR(64)
+  * email : VARCHAR(255) <<UNIQUE>>
+  * role : ENUM
+  * status : ENUM
+  created_at : DATETIME
+}
+
+entity "member_identities" as identities {
+  * id : BIGINT <<PK>>
+  --
+  * member_id : BIGINT <<FK>>
+  * provider : ENUM
+  * external_id : VARCHAR(128)
+  external_username : VARCHAR(128)
+  verified : TINYINT
+}
+
+entity "repositories" as repos {
+  * id : BIGINT <<PK>>
+  --
+  * owner : VARCHAR(128)
+  * name : VARCHAR(128)
+  default_branch : VARCHAR(128)
+  enabled : TINYINT
+}
+
+entity "raw_commits" as commits {
+  * id : BIGINT <<PK>>
+  --
+  * repo_id : BIGINT <<FK>>
+  * sha : CHAR(40) <<UNIQUE with repo>>
+  author_identity_id : BIGINT <<FK>>
+  * committed_at : DATETIME
+  * message : TEXT
+  pr_number : INT
+}
+
+entity "raw_tasks" as tasks {
+  * id : BIGINT <<PK>>
+  --
+  * task_id : VARCHAR(128) <<UNIQUE>>
+  * title : VARCHAR(512)
+  owner_identity_id : BIGINT <<FK>>
+  participants_json : JSON
+  * status : VARCHAR(64)
+  status_changed_at : DATETIME
+}
+
+entity "raw_messages" as messages {
+  * id : BIGINT <<PK>>
+  --
+  * message_id : VARCHAR(128) <<UNIQUE>>
+  * chat_id : VARCHAR(128)
+  sender_identity_id : BIGINT <<FK>>
+  * sent_at : DATETIME
+  content_excerpt : TEXT
+}
+
+entity "identity_unmatched" as unmatched {
+  * id : BIGINT <<PK>>
+  --
+  * provider : ENUM
+  * external_id : VARCHAR(128)
+  * source_type : VARCHAR(32)
+  * source_id : VARCHAR(128)
+  resolved_member_id : BIGINT <<FK>>
+}
+
+entity "daily_reports" as reports {
+  * id : BIGINT <<PK>>
+  --
+  * report_date : DATE
+  * report_type : ENUM
+  * scope_key : VARCHAR(64)
+  member_id : BIGINT <<FK>>
+  * content_md : MEDIUMTEXT
+  * current_version : INT
+}
+
+entity "report_items" as items {
+  * id : BIGINT <<PK>>
+  --
+  * report_id : BIGINT <<FK>>
+  * category : ENUM
+  * title : VARCHAR(512)
+  source_type : VARCHAR(32)
+  source_id : VARCHAR(128)
+  attribution_role : ENUM
+}
+
+entity "report_versions" as versions {
+  * id : BIGINT <<PK>>
+  --
+  * report_id : BIGINT <<FK>>
+  * version : INT
+  * content_md : MEDIUMTEXT
+  * editor : VARCHAR(64)
+}
+
+entity "push_logs" as pushes {
+  * id : BIGINT <<PK>>
+  --
+  * report_id : BIGINT <<FK>>
+  * channel : ENUM
+  * status : ENUM
+  attempt : INT
+}
+
+entity "source_sync_state" as sync {
+  * id : BIGINT <<PK>>
+  --
+  * source : ENUM
+  * resource_key : VARCHAR(191)
+  last_cursor : VARCHAR(255)
+  status : ENUM
+}
+
+members ||--o{ identities
+members ||--o{ reports
+members ||--o{ unmatched : resolved
+repos ||--o{ commits
+identities ||--o{ commits
+identities ||--o{ tasks
+identities ||--o{ messages
+reports ||--o{ items
+reports ||--o{ versions
+reports ||--o{ pushes
+
+@enduml

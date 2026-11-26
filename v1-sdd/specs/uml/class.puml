@@ -1,0 +1,135 @@
+@startuml
+' 智能日报生成器 · 类图
+skinparam classAttributeIconSize 0
+
+package "领域实体" {
+  class Member {
+    +id: int
+    +name: str
+    +email: str
+    +role: str
+    +status: str
+  }
+
+  class MemberIdentity {
+    +id: int
+    +memberId: int
+    +provider: str
+    +externalId: str
+    +externalUsername: str
+    +verified: bool
+  }
+
+  class Repository {
+    +id: int
+    +owner: str
+    +name: str
+    +defaultBranch: str
+    +enabled: bool
+  }
+
+  class RawCommit {
+    +id: int
+    +repoId: int
+    +sha: str
+    +authorIdentityId: int
+    +committedAt: datetime
+    +message: str
+    +prNumber: int
+  }
+
+  class RawTask {
+    +id: int
+    +taskId: str
+    +title: str
+    +ownerIdentityId: int
+    +participants: list
+    +status: str
+    +statusChangedAt: datetime
+  }
+
+  class RawMessage {
+    +id: int
+    +messageId: str
+    +chatId: str
+    +senderIdentityId: int
+    +sentAt: datetime
+    +contentExcerpt: str
+  }
+
+  class DailyReport {
+    +id: int
+    +reportDate: date
+    +reportType: str
+    +scopeKey: str
+    +contentMd: str
+    +currentVersion: int
+  }
+
+  class ReportItem {
+    +id: int
+    +category: str
+    +title: str
+    +sourceId: str
+    +attributionRole: str
+    +sortOrder: int
+  }
+
+  class PushLog {
+    +id: int
+    +channel: str
+    +status: str
+    +attempt: int
+    +errorMessage: str
+  }
+}
+
+Member "1" -- "0..*" MemberIdentity
+Member "1" -- "0..*" DailyReport
+Repository "1" -- "0..*" RawCommit
+MemberIdentity "1" -- "0..*" RawCommit
+MemberIdentity "1" -- "0..*" RawTask
+MemberIdentity "1" -- "0..*" RawMessage
+DailyReport "1" *-- "0..*" ReportItem
+DailyReport "1" -- "0..*" PushLog
+
+package "服务接口" {
+  interface Collector {
+    +source: str
+    +collect(window: TimeWindow): CollectionResult
+  }
+
+  interface Pusher {
+    +channel: str
+    +push(report: DailyReport, target: str): PushResult
+  }
+
+  class GitHubCollector
+  class FeishuTaskCollector
+  class FeishuMessageCollector
+  class IdentityResolver
+  class AttributionEngine
+  class PersonalReportGenerator
+  class TeamReportGenerator
+  class EmailPusher
+  class FeishuBotPusher
+  class DailyReportOrchestrator
+}
+
+GitHubCollector ..|> Collector
+FeishuTaskCollector ..|> Collector
+FeishuMessageCollector ..|> Collector
+EmailPusher ..|> Pusher
+FeishuBotPusher ..|> Pusher
+
+DailyReportOrchestrator --> Collector
+DailyReportOrchestrator --> IdentityResolver
+DailyReportOrchestrator --> AttributionEngine
+DailyReportOrchestrator --> PersonalReportGenerator
+DailyReportOrchestrator --> TeamReportGenerator
+DailyReportOrchestrator --> Pusher
+
+PersonalReportGenerator --> ReportItem
+TeamReportGenerator --> DailyReport
+
+@enduml

@@ -1,0 +1,47 @@
+@startuml
+' 智能日报生成器 · 用例图
+left to right direction
+skinparam packageStyle rectangle
+
+actor "成员" as Member
+actor "组长" as Leader
+actor "导师" as Mentor
+actor "定时任务" as Scheduler
+
+rectangle "智能日报生成器" {
+  usecase "采集 GitHub 提交" as UC1
+  usecase "采集飞书任务" as UC2
+  usecase "采集飞书群消息" as UC3
+  usecase "绑定成员身份" as UC4
+  usecase "生成个人日报" as UC5
+  usecase "汇总团队日报" as UC6
+  usecase "推送日报" as UC7
+  usecase "查询历史日报" as UC8
+  usecase "编辑日报" as UC9
+  usecase "配置数据源" as UC10
+  usecase "处理无数据/缺勤" as UC11
+  usecase "降级生成" as UC12
+}
+
+Member --> UC8
+Member --> UC9
+Member --> UC5
+Leader --> UC4
+Leader --> UC6
+Leader --> UC7
+Leader --> UC10
+Mentor --> UC8
+Scheduler --> UC1
+Scheduler --> UC2
+Scheduler --> UC3
+Scheduler --> UC5
+
+UC5 ..> UC1 : <<include>>
+UC5 ..> UC2 : <<include>>
+UC5 ..> UC3 : <<include>>
+UC6 ..> UC5 : <<include>>
+UC7 ..> UC6 : <<include>>
+UC11 ..> UC5 : <<extend>>
+UC12 ..> UC5 : <<extend>>
+
+@enduml
