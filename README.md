@@ -67,3 +67,7 @@ GitHub 令牌、飞书 `app_secret`、SMTP 授权码**只写入各 backend 目�
 ## 规范文档
 
 SDD 要求的三份核心规范（`proposal.md` / `design.md` / `tasks.md`）将在后续阶段放入对应工程的 `specs/` 目录，与代码同库管理。
+
+## 项目级技能
+
+- `.claude/skills/unslop/`：前端优化技能，来自 [heydamir/unslop](https://github.com/heydamir/unslop)，作者 Damir Sokolovsky，许可 CC BY 4.0。仅当前项目使用。

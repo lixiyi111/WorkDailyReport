@@ -1,11 +1,41 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 
 import client from '../api/client'
+
+const SOURCE_META = {
+  github: { name: 'GitHub', desc: '提交与 PR' },
+  feishu: { name: '飞书', desc: '任务与群消息' },
+  smtp: { name: '邮件', desc: '日报推送' },
+}
+
+const now = new Date()
+const pad = (value) => String(value).padStart(2, '0')
+const isoDate = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
+const dateLabel = `${new Intl.DateTimeFormat('zh-CN', {
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+}).format(now)} ${new Intl.DateTimeFormat('zh-CN', { weekday: 'long' }).format(now)}`
 
 const loading = ref(true)
 const error = ref('')
 const health = ref(null)
+
+const connectionLabel = computed(() => {
+  if (loading.value) return '正在检测'
+  if (error.value) return '连接失败'
+  return '连接正常'
+})
+
+const sources = computed(() => {
+  if (!health.value) return []
+  return Object.entries(health.value.credentials).map(([key, ready]) => ({
+    key,
+    ready,
+    ...(SOURCE_META[key] ?? { name: key, desc: '' }),
+  }))
+})
 
 async function loadHealth() {
   loading.value = true
@@ -13,8 +43,8 @@ async function loadHealth() {
   try {
     const { data } = await client.get('/health')
     health.value = data
-  } catch (err) {
-    error.value = '无法连接后端服务，请确认 FastAPI 已在 8000 端口启动。'
+  } catch {
+    error.value = '无法连接后端服务，请确认 FastAPI 已在 8000 端口启动'
   } finally {
     loading.value = false
   }
@@ -24,34 +54,72 @@ onMounted(loadHealth)
 </script>
 
 <template>
-  <section class="card">
+  <header class="page-head">
+    <p class="page-kicker">
+      <span class="brand-dot" aria-hidden="true"></span>
+      当日
+    </p>
+    <h1 class="page-title">
+      <time :datetime="isoDate">{{ dateLabel }}</time>
+    </h1>
+    <p class="page-sub">数据源与推送状态</p>
+  </header>
+
+  <section class="card card--sources" aria-labelledby="sources-title">
     <header class="card-head">
-      <h2>系统状态</h2>
+      <div>
+        <h2 id="sources-title" class="card-title">数据源</h2>
+        <p class="card-sub">
+          {{ connectionLabel }}
+          <template v-if="health">
+            · <span class="mono">{{ health.app_env }}</span>
+          </template>
+        </p>
+      </div>
       <button class="btn" :disabled="loading" @click="loadHealth">
-        {{ loading ? '检测中…' : '重新检测' }}
+        {{ loading ? '检测中' : '重新检测' }}
       </button>
     </header>
 
-    <p v-if="loading" class="muted">正在检测后端连接…</p>
+    <p v-if="loading" class="state-line">正在检测后端连接</p>
     <p v-else-if="error" class="error">{{ error }}</p>
-    <div v-else>
-      <p class="ok">后端连接正常 · 环境：{{ health.app_env }}</p>
-      <ul class="cred-list">
-        <li v-for="(ready, name) in health.credentials" :key="name">
-          <span>{{ name }}</span>
-          <span :class="ready ? 'badge on' : 'badge off'">
-            {{ ready ? '已就绪' : '未配置' }}
-          </span>
-        </li>
-      </ul>
-    </div>
+    <ul v-else class="source-list">
+      <li v-for="source in sources" :key="source.key" class="source-row">
+        <div class="source-main">
+          <span class="source-name">{{ source.name }}</span>
+          <span class="source-desc">{{ source.desc }}</span>
+        </div>
+        <span class="source-state">
+          <span
+            class="status-dot"
+            :class="source.ready ? 'is-ready' : 'is-missing'"
+            aria-hidden="true"
+          ></span>
+          <span class="mono">{{ source.ready ? '已连接' : '未配置' }}</span>
+        </span>
+      </li>
+    </ul>
   </section>
 
-  <section class="card">
-    <h2>下一步</h2>
-    <p class="muted">
-      当前为项目骨架。采集层 / 生成层 / 推送层 / 主编排入口将在后续按规范逐步实现，
-      此页面仅用于验证前后端连通与凭证就绪状态。
+  <section class="card card--note" aria-labelledby="note-title">
+    <h2 id="note-title" class="card-title">说明</h2>
+    <p class="side-note">
+      后端已实现采集、生成与推送链路。此页用于查看数据源与凭证状态。
     </p>
+    <dl class="layer-list">
+      <div>
+        <dt>采集</dt>
+        <dd>GitHub 提交 · 飞书任务与群消息</dd>
+      </div>
+      <div>
+        <dt>生成</dt>
+        <dd>个人日报 · 团队日报</dd>
+      </div>
+      <div>
+        <dt>推送</dt>
+        <dd>邮件 · 飞书机器人</dd>
+      </div>
+    </dl>
+    <p class="side-foot">日报列表与编辑页尚未接入</p>
   </section>
 </template>
