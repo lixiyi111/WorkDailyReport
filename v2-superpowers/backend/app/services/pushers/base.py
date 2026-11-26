@@ -13,6 +13,7 @@ class PushResult:
     success: bool
     attempts: int
     error: str | None = None
+    skipped: bool = False
 
 
 AttemptHook = Callable[[int, bool, str | None], Awaitable[None]]
