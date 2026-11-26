@@ -14,11 +14,12 @@ from app.core.config import get_settings
 from app.core.timeutil import now_utc
 from app.db.session import get_session
 from app.models import DataSource, PushLog, SourceSyncState
+from app.services.auth import require_roles
 from app.services.collectors.base import AuthError
 from app.services.collectors.feishu import FeishuClient
 from app.services.factory import build_orchestrator
 
-router = APIRouter(tags=["sources"])
+router = APIRouter(tags=["sources"], dependencies=[Depends(require_roles("admin", "leader"))])
 
 ALLOWED_CONFIG = {
     "github": {"repos"},

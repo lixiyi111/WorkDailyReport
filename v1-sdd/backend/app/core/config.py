@@ -68,6 +68,17 @@ class Settings(BaseSettings):
     feishu_use_mock: bool = False
     mock_member_emails: str = ""
 
+    # 登录与权限
+    auth_secret: str = ""
+    auth_token_expire_minutes: int = 720
+    auth_admin_username: str = "admin"
+    auth_admin_password: str = ""
+    auth_leader_username: str = "leader"
+    auth_leader_password: str = ""
+    auth_member_username: str = "member"
+    auth_member_password: str = ""
+    auth_member_id: int | None = None
+
     @property
     def cors_origin_list(self) -> list[str]:
         """把逗号分隔的 CORS 来源解析为列表。"""

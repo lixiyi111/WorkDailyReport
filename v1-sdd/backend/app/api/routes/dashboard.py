@@ -20,8 +20,9 @@ from app.models import (
     RawMessage,
     RawTask,
 )
+from app.services.auth import get_current_user
 
-router = APIRouter(tags=["dashboard"])
+router = APIRouter(tags=["dashboard"], dependencies=[Depends(get_current_user)])
 
 
 @router.get("/dashboard")

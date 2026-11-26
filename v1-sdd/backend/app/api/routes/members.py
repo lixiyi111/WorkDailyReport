@@ -15,8 +15,9 @@ from app.models import (
     RawTask,
 )
 from app.schemas import IdentityBind, MemberCreate, MemberUpdate
+from app.services.auth import require_roles
 
-router = APIRouter(tags=["members"])
+router = APIRouter(tags=["members"], dependencies=[Depends(require_roles("admin", "leader"))])
 
 
 def _member_dict(member: Member) -> dict:

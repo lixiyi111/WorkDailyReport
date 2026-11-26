@@ -10,6 +10,7 @@ from app.core.config import get_settings
 from app.core.logging import setup_logging
 from app.db.session import init_models
 from app.scheduler import start_scheduler, stop_scheduler
+from app.services.auth import seed_default_users
 
 settings = get_settings()
 
@@ -19,6 +20,7 @@ async def lifespan(_: FastAPI):
     setup_logging()
     if settings.auto_create_tables:
         await init_models()
+    await seed_default_users()
     if settings.enable_scheduler:
         start_scheduler()
     yield

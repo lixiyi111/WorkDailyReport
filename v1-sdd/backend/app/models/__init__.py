@@ -1,6 +1,7 @@
 """ORM 模型导出。"""
 
 from app.models.entities import (
+    AppUser,
     AttendanceRecord,
     CollectionRun,
     DailyReport,
@@ -20,6 +21,7 @@ from app.models.entities import (
 )
 
 __all__ = [
+    "AppUser",
     "AttendanceRecord",
     "CollectionRun",
     "DailyReport",

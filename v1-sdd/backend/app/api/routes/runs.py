@@ -9,9 +9,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.db.session import get_session
 from app.models import CollectionRun
+from app.services.auth import require_roles
 from app.services.factory import build_orchestrator
 
-router = APIRouter(tags=["runs"])
+router = APIRouter(tags=["runs"], dependencies=[Depends(require_roles("admin", "leader"))])
 
 
 def _run_dict(run: CollectionRun) -> dict:

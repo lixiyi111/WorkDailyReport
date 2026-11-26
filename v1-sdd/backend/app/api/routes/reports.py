@@ -3,13 +3,14 @@
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.db.session import get_session
-from app.models import DailyReport, Member, PushLog, ReportItem, ReportVersion
+from app.models import AppUser, DailyReport, Member, PushLog, ReportItem, ReportVersion
 from app.schemas import GenerateRequest, PushRequest, ReportUpdate
+from app.services.auth import get_current_user, require_roles
 from app.services.collectors import (
     MockFeishuMessageCollector,
     MockFeishuTaskCollector,
@@ -20,7 +21,11 @@ from app.services.factory import build_orchestrator
 from app.services.orchestrator import DailyReportOrchestrator
 from app.services.pushers import ConsolePusher, EmailPusher, FeishuBotPusher
 
-router = APIRouter(prefix="/reports", tags=["reports"])
+router = APIRouter(
+    prefix="/reports",
+    tags=["reports"],
+    dependencies=[Depends(get_current_user)],
+)
 
 
 def _report_dict(
@@ -67,6 +72,7 @@ async def list_reports(
     status: str | None = None,
     date_from: date | None = None,
     date_to: date | None = None,
+    user: AppUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> list[dict]:
     stmt = select(DailyReport)
@@ -82,6 +88,16 @@ async def list_reports(
         stmt = stmt.where(DailyReport.report_date >= date_from)
     if date_to:
         stmt = stmt.where(DailyReport.report_date <= date_to)
+    if user.role == "member":
+        if user.member_id:
+            stmt = stmt.where(
+                or_(
+                    DailyReport.report_type == "team",
+                    DailyReport.member_id == user.member_id,
+                )
+            )
+        else:
+            stmt = stmt.where(DailyReport.report_type == "team")
     reports = (
         await session.execute(
             stmt.order_by(DailyReport.report_date.desc(), DailyReport.id.desc())
@@ -99,11 +115,19 @@ async def list_reports(
 
 @router.get("/{report_id}")
 async def get_report(
-    report_id: int, session: AsyncSession = Depends(get_session)
+    report_id: int,
+    user: AppUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
 ) -> dict:
     report = await session.get(DailyReport, report_id)
     if report is None:
         raise HTTPException(status_code=404, detail="日报不存在")
+    if (
+        user.role == "member"
+        and report.report_type == "personal"
+        and report.member_id != user.member_id
+    ):
+        raise HTTPException(status_code=403, detail="无权查看该日报")
     items = (
         await session.execute(
             select(ReportItem)
@@ -115,7 +139,7 @@ async def get_report(
     return _report_dict(report, items, member.name if member else None)
 
 
-@router.put("/{report_id}")
+@router.put("/{report_id}", dependencies=[Depends(require_roles("admin", "leader"))])
 async def update_report(
     report_id: int,
     payload: ReportUpdate,
@@ -142,7 +166,7 @@ async def update_report(
     return _report_dict(report, member_name=member.name if member else None)
 
 
-@router.post("/generate")
+@router.post("/generate", dependencies=[Depends(require_roles("admin", "leader"))])
 async def generate_report(
     payload: GenerateRequest, session: AsyncSession = Depends(get_session)
 ) -> dict:
@@ -166,7 +190,7 @@ async def generate_report(
     return await orchestrator.run(payload.report_date, push=payload.push)
 
 
-@router.post("/{report_id}/push")
+@router.post("/{report_id}/push", dependencies=[Depends(require_roles("admin", "leader"))])
 async def push_report(
     report_id: int,
     payload: PushRequest,

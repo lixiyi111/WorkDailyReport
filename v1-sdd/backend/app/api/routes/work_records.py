@@ -8,10 +8,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.db.session import get_session
+from app.services.auth import require_roles
 from app.services.factory import build_orchestrator
 from app.services.work_records import list_work_records
 
-router = APIRouter(tags=["work-records"])
+router = APIRouter(
+    tags=["work-records"], dependencies=[Depends(require_roles("admin", "leader"))]
+)
 
 
 class CollectRequest(BaseModel):

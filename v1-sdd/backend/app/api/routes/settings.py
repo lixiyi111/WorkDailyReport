@@ -7,8 +7,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
 from app.models import SystemSetting
+from app.services.auth import require_roles
 
-router = APIRouter(tags=["settings"])
+router = APIRouter(tags=["settings"], dependencies=[Depends(require_roles("admin", "leader"))])
 
 DEFAULTS = {
     "timezone": "Asia/Shanghai",
@@ -38,7 +39,7 @@ async def read_settings(session: AsyncSession = Depends(get_session)) -> dict:
     return await _read_settings(session)
 
 
-@router.put("/settings")
+@router.put("/settings", dependencies=[Depends(require_roles("admin"))])
 async def update_settings(
     payload: SettingsUpdate,
     session: AsyncSession = Depends(get_session),
