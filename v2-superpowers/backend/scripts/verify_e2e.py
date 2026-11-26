@@ -10,7 +10,10 @@ import time
 
 import httpx
 
+from app.core.config import get_settings
+
 BASE = sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:8000/api"
+REPORT_DATE = sys.argv[2] if len(sys.argv) > 2 else "2026-11-06"
 
 
 def login(client: httpx.Client, username: str, password: str) -> dict[str, str]:
@@ -22,13 +25,16 @@ def login(client: httpx.Client, username: str, password: str) -> dict[str, str]:
 
 
 def main() -> None:
+    settings = get_settings()
     with httpx.Client(timeout=60) as client:
-        admin_headers = login(client, "admin", "admin123")
+        admin_headers = login(
+            client, settings.auth_admin_username, settings.auth_admin_password
+        )
         start = time.perf_counter()
         generated = client.post(
             f"{BASE}/reports/generate",
             headers=admin_headers,
-            json={"report_date": "2026-11-06", "push": False},
+            json={"report_date": REPORT_DATE, "push": False},
         )
         generated.raise_for_status()
         elapsed = time.perf_counter() - start
@@ -44,7 +50,9 @@ def main() -> None:
                 f"{report['report_type']} {report.get('member_name') or ''}"
             )
 
-        member_headers = login(client, "member", "member123")
+        member_headers = login(
+            client, settings.auth_member_username, settings.auth_member_password
+        )
         mine = client.get(f"{BASE}/reports", headers=member_headers).json()
         print(f"成员可见日报: {len(mine)} 份")
         for report in mine:
