@@ -7,8 +7,10 @@ from sqlalchemy import and_, delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
-from app.core.timeutil import natural_day_window_utc
+from app.core.timeutil import natural_day_window_utc, now_utc
 from app.models import (
+    AttendanceRecord,
+    CollectionRun,
     DailyReport,
     Member,
     MemberIdentity,
@@ -18,6 +20,7 @@ from app.models import (
     RawTask,
     ReportItem,
     Repository,
+    SourceSyncState,
 )
 from app.services.attribution import AttributedItem, AttributionEngine
 from app.services.collectors.base import (
@@ -63,27 +66,82 @@ class DailyReportOrchestrator:
         self.personal_gen = PersonalReportGenerator()
         self.team_gen = TeamReportGenerator()
 
-    async def run(self, report_date: date) -> dict:
+    async def run(self, report_date: date, push: bool = True) -> dict:
         async with _get_run_lock():
-            start, end = natural_day_window_utc(report_date)
-            window = TimeWindow(start=start, end=end)
-            by_source, errors = await self._collect(window)
-            await self._persist(by_source)
+            run = CollectionRun(
+                run_type="daily",
+                status="running",
+                started_at=now_utc(),
+                detail_json={"report_date": report_date.isoformat()},
+            )
+            self.session.add(run)
             await self.session.flush()
-            items = await self._build_items(start, end)
-            personal = await self._generate_personal(report_date, items)
-            team_report, team_generated = await self._generate_team(report_date, personal, items)
-            pushes = await self._push(team_report, team_generated)
-            await self.session.commit()
-            return {
-                "report_date": report_date.isoformat(),
-                "collected": {source: len(result.items) for source, result in by_source.items()},
-                "errors": errors,
-                "personal_reports": len(personal),
-                "items": len(items),
-                "team_report_id": team_report.id,
-                "pushes": pushes,
-            }
+            try:
+                start, end = natural_day_window_utc(report_date)
+                window = TimeWindow(start=start, end=end)
+                by_source, errors = await self._collect(window)
+                await self._persist(by_source)
+                await self._update_sync_state(by_source, errors)
+                await self.session.flush()
+                items = await self._build_items(start, end)
+                personal = await self._generate_personal(report_date, items)
+                team_report, team_generated = await self._generate_team(
+                    report_date, personal, items
+                )
+                pushes = await self._push(team_report, team_generated) if push else []
+                collected = {
+                    source: len(result.items) for source, result in by_source.items()
+                }
+                run.status = "success" if not errors else "partial"
+                run.records_count = sum(collected.values())
+                run.finished_at = now_utc()
+                run.detail_json = {
+                    "report_date": report_date.isoformat(),
+                    "collected": collected,
+                    "errors": errors,
+                    "personal_reports": len(personal),
+                    "items": len(items),
+                    "pushes": pushes,
+                }
+                await self.session.commit()
+                return {
+                    "run_id": run.id,
+                    "report_date": report_date.isoformat(),
+                    "collected": collected,
+                    "errors": errors,
+                    "personal_reports": len(personal),
+                    "items": len(items),
+                    "team_report_id": team_report.id,
+                    "pushes": pushes,
+                    "push_enabled": push,
+                }
+            except Exception as exc:
+                run.status = "failed"
+                run.finished_at = now_utc()
+                run.error_message = f"{type(exc).__name__}: {exc}"[:1024]
+                await self.session.commit()
+                raise
+
+    async def _update_sync_state(self, by_source: dict, errors: list[dict]) -> None:
+        error_by_source: dict[str, list[str]] = {}
+        for error in errors:
+            error_by_source.setdefault(error["source"], []).append(error["message"])
+        for source, result in by_source.items():
+            row = (
+                await self.session.execute(
+                    select(SourceSyncState).where(
+                        SourceSyncState.source == source,
+                        SourceSyncState.resource_key == "default",
+                    )
+                )
+            ).scalar_one_or_none()
+            if row is None:
+                row = SourceSyncState(source=source, resource_key="default")
+                self.session.add(row)
+            row.last_synced_at = now_utc()
+            source_errors = error_by_source.get(source, [])
+            row.status = "partial" if (result.partial or source_errors) else "success"
+            row.error_message = "; ".join(source_errors)[:1024] or None
 
     async def _collect(self, window: TimeWindow) -> tuple[dict, list[dict]]:
         results = await asyncio.gather(
@@ -351,7 +409,10 @@ class DailyReportOrchestrator:
         for member in members:
             member_items = [item for item in items if item.member_id == member.id]
             open_tasks = await self._open_tasks_for(member.id)
-            generated = self.personal_gen.generate(member, report_date, member_items, open_tasks)
+            attendance = await self._attendance_for(member.id, report_date)
+            generated = self.personal_gen.generate(
+                member, report_date, member_items, open_tasks, attendance
+            )
             report = await self._upsert_report(
                 report_date, "personal", f"member:{member.id}", member.id, generated
             )
@@ -392,6 +453,24 @@ class DailyReportOrchestrator:
         report = await self._upsert_report(report_date, "team", "team", None, generated)
         await self._replace_items(report.id, items)
         return report, generated
+
+    async def _attendance_for(self, member_id: int, work_date: date) -> dict | None:
+        result = await self.session.execute(
+            select(AttendanceRecord).where(
+                AttendanceRecord.member_id == member_id,
+                AttendanceRecord.work_date == work_date,
+            )
+        )
+        row = result.scalar_one_or_none()
+        if row is None:
+            return None
+        return {
+            "status": row.status,
+            "check_in": row.check_in.strftime("%H:%M") if row.check_in else None,
+            "check_out": row.check_out.strftime("%H:%M") if row.check_out else None,
+            "late_minutes": row.late_minutes,
+            "early_minutes": row.early_minutes,
+        }
 
     async def _open_tasks_for(self, member_id: int) -> list[str]:
         identities = (

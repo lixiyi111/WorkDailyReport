@@ -14,7 +14,7 @@ from app.models import (
     RawMessage,
     RawTask,
 )
-from app.schemas import IdentityBind, MemberCreate
+from app.schemas import IdentityBind, MemberCreate, MemberUpdate
 
 router = APIRouter(tags=["members"])
 
@@ -46,6 +46,47 @@ async def create_member(
         raise HTTPException(status_code=409, detail="邮箱已存在")
     member = Member(name=payload.name, email=payload.email, role=payload.role)
     session.add(member)
+    await session.commit()
+    await session.refresh(member)
+    return _member_dict(member)
+
+
+@router.put("/members/{member_id}")
+async def update_member(
+    member_id: int,
+    payload: MemberUpdate,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    member = await session.get(Member, member_id)
+    if member is None:
+        raise HTTPException(status_code=404, detail="成员不存在")
+    if payload.email and payload.email != member.email:
+        existing = (
+            await session.execute(
+                select(Member).where(
+                    Member.email == payload.email, Member.id != member_id
+                )
+            )
+        ).scalar_one_or_none()
+        if existing:
+            raise HTTPException(status_code=409, detail="邮箱已存在")
+    for field in ("name", "email", "role", "status"):
+        value = getattr(payload, field)
+        if value is not None:
+            setattr(member, field, value)
+    await session.commit()
+    await session.refresh(member)
+    return _member_dict(member)
+
+
+@router.delete("/members/{member_id}")
+async def deactivate_member(
+    member_id: int, session: AsyncSession = Depends(get_session)
+) -> dict:
+    member = await session.get(Member, member_id)
+    if member is None:
+        raise HTTPException(status_code=404, detail="成员不存在")
+    member.status = "inactive"
     await session.commit()
     await session.refresh(member)
     return _member_dict(member)

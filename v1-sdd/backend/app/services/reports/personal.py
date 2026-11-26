@@ -30,6 +30,7 @@ class PersonalReportGenerator:
         report_date: date,
         items: list[AttributedItem],
         open_tasks: list[str] | None = None,
+        attendance: dict | None = None,
     ) -> GeneratedReport:
         done = [i for i in items if i.role in ("author", "owner") and i.category != "message"]
         collab = [i for i in items if i.role in ("reviewer", "participant") or i.category == "message"]
@@ -49,14 +50,31 @@ class PersonalReportGenerator:
             "- 待补充（可手工编辑）"
         ]
 
+        sections = [
+            ("今日完成", done_lines),
+            ("协作贡献", collab_lines),
+            ("问题与阻塞", ["- 暂无"]),
+            ("明日计划", plan_lines),
+        ]
+        if attendance:
+            status_map = {
+                "normal": "正常",
+                "late": "迟到",
+                "early": "早退",
+                "absent": "缺卡",
+                "leave": "请假",
+            }
+            lines = [f"- 考勤：{status_map.get(attendance['status'], attendance['status'])}"]
+            if attendance.get("late_minutes"):
+                lines.append(f"- 迟到 {attendance['late_minutes']} 分钟")
+            if attendance.get("early_minutes"):
+                lines.append(f"- 早退 {attendance['early_minutes']} 分钟")
+            sections.insert(2, ("考勤", lines))
+            summary["attendance"] = attendance["status"]
+
         content = render_document(
             f"{member.name} 的个人日报（{report_date.isoformat()}）",
-            [
-                ("今日完成", done_lines),
-                ("协作贡献", collab_lines),
-                ("问题与阻塞", ["- 暂无"]),
-                ("明日计划", plan_lines),
-            ],
+            sections,
         )
         return GeneratedReport(
             title=f"{member.name} 的个人日报",

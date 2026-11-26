@@ -14,6 +14,7 @@ class ReportUpdate(BaseModel):
 class GenerateRequest(BaseModel):
     report_date: date
     demo: bool = False
+    push: bool = True
 
 
 class PushRequest(BaseModel):

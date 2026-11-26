@@ -1,7 +1,10 @@
 """ORM 模型导出。"""
 
 from app.models.entities import (
+    AttendanceRecord,
+    CollectionRun,
     DailyReport,
+    DataSource,
     IdentityUnmatched,
     Member,
     MemberIdentity,
@@ -13,10 +16,14 @@ from app.models.entities import (
     ReportVersion,
     Repository,
     SourceSyncState,
+    SystemSetting,
 )
 
 __all__ = [
+    "AttendanceRecord",
+    "CollectionRun",
     "DailyReport",
+    "DataSource",
     "IdentityUnmatched",
     "Member",
     "MemberIdentity",
@@ -28,4 +35,5 @@ __all__ = [
     "ReportVersion",
     "Repository",
     "SourceSyncState",
+    "SystemSetting",
 ]

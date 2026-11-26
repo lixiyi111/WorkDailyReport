@@ -182,3 +182,52 @@ CREATE TABLE IF NOT EXISTS source_sync_state (
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   UNIQUE KEY uk_source_resource (source, resource_key)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS collection_runs (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  run_type VARCHAR(16) NOT NULL DEFAULT 'daily',
+  status VARCHAR(16) NOT NULL DEFAULT 'running',
+  started_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  finished_at DATETIME NULL,
+  records_count INT NOT NULL DEFAULT 0,
+  error_message VARCHAR(1024) NULL,
+  detail_json JSON NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_run_started (started_at),
+  KEY idx_run_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS data_sources (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  source VARCHAR(32) NOT NULL,
+  enabled TINYINT(1) NOT NULL DEFAULT 1,
+  config_json JSON NULL,
+  last_run_at DATETIME NULL,
+  last_status VARCHAR(16) NULL,
+  last_error VARCHAR(1024) NULL,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_data_source (source)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS attendance_records (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  member_id BIGINT UNSIGNED NOT NULL,
+  work_date DATE NOT NULL,
+  check_in DATETIME NULL,
+  check_out DATETIME NULL,
+  status VARCHAR(16) NOT NULL DEFAULT 'normal',
+  late_minutes INT NOT NULL DEFAULT 0,
+  early_minutes INT NOT NULL DEFAULT 0,
+  source VARCHAR(16) NOT NULL DEFAULT 'mock',
+  raw_json JSON NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_attendance_member_date (member_id, work_date),
+  KEY idx_attendance_date (work_date),
+  CONSTRAINT fk_attendance_member FOREIGN KEY (member_id) REFERENCES members(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS system_settings (
+  `key` VARCHAR(64) NOT NULL PRIMARY KEY,
+  `value` TEXT NOT NULL,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

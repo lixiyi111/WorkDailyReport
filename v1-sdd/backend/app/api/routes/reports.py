@@ -64,6 +64,9 @@ async def list_reports(
     report_date: date | None = Query(None, alias="date"),
     report_type: str | None = Query(None, alias="type"),
     member_id: int | None = None,
+    status: str | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
     session: AsyncSession = Depends(get_session),
 ) -> list[dict]:
     stmt = select(DailyReport)
@@ -73,6 +76,12 @@ async def list_reports(
         stmt = stmt.where(DailyReport.report_type == report_type)
     if member_id:
         stmt = stmt.where(DailyReport.member_id == member_id)
+    if status:
+        stmt = stmt.where(DailyReport.status == status)
+    if date_from:
+        stmt = stmt.where(DailyReport.report_date >= date_from)
+    if date_to:
+        stmt = stmt.where(DailyReport.report_date <= date_to)
     reports = (
         await session.execute(
             stmt.order_by(DailyReport.report_date.desc(), DailyReport.id.desc())
@@ -154,7 +163,7 @@ async def generate_report(
         )
     else:
         orchestrator = build_orchestrator(session, settings)
-    return await orchestrator.run(payload.report_date)
+    return await orchestrator.run(payload.report_date, push=payload.push)
 
 
 @router.post("/{report_id}/push")
