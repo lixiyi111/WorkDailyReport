@@ -71,6 +71,8 @@ CREATE TABLE IF NOT EXISTS attendance_records (
 	FOREIGN KEY(member_id) REFERENCES members (id)
 );
 
+CREATE INDEX idx_attendance_date ON attendance_records (attendance_date);
+
 CREATE TABLE IF NOT EXISTS daily_reports (
 	id BIGINT NOT NULL AUTO_INCREMENT, 
 	report_date DATE NOT NULL, 
@@ -87,6 +89,9 @@ CREATE TABLE IF NOT EXISTS daily_reports (
 	CONSTRAINT uk_report_scope UNIQUE (report_date, report_type, scope_key), 
 	FOREIGN KEY(member_id) REFERENCES members (id)
 );
+
+CREATE INDEX idx_report_date ON daily_reports (report_date);
+CREATE INDEX idx_report_member ON daily_reports (member_id);
 
 CREATE TABLE IF NOT EXISTS identity_unmatched (
 	id BIGINT NOT NULL AUTO_INCREMENT, 
@@ -116,6 +121,8 @@ CREATE TABLE IF NOT EXISTS member_identities (
 	FOREIGN KEY(member_id) REFERENCES members (id)
 );
 
+CREATE INDEX idx_identity_member ON member_identities (member_id);
+
 CREATE TABLE IF NOT EXISTS push_logs (
 	id BIGINT NOT NULL AUTO_INCREMENT, 
 	report_id BIGINT NOT NULL, 
@@ -128,6 +135,9 @@ CREATE TABLE IF NOT EXISTS push_logs (
 	PRIMARY KEY (id), 
 	FOREIGN KEY(report_id) REFERENCES daily_reports (id) ON DELETE CASCADE
 );
+
+CREATE INDEX idx_push_report ON push_logs (report_id);
+CREATE INDEX idx_push_status ON push_logs (status, sent_at);
 
 CREATE TABLE IF NOT EXISTS raw_commits (
 	id BIGINT NOT NULL AUTO_INCREMENT, 
@@ -148,6 +158,9 @@ CREATE TABLE IF NOT EXISTS raw_commits (
 	FOREIGN KEY(author_identity_id) REFERENCES member_identities (id)
 );
 
+CREATE INDEX idx_commit_author ON raw_commits (author_identity_id);
+CREATE INDEX idx_commit_time ON raw_commits (committed_at);
+
 CREATE TABLE IF NOT EXISTS raw_messages (
 	id BIGINT NOT NULL AUTO_INCREMENT, 
 	message_id VARCHAR(128) NOT NULL, 
@@ -162,6 +175,9 @@ CREATE TABLE IF NOT EXISTS raw_messages (
 	CONSTRAINT uk_message_id UNIQUE (message_id), 
 	FOREIGN KEY(sender_identity_id) REFERENCES member_identities (id)
 );
+
+CREATE INDEX idx_chat_sent ON raw_messages (chat_id, sent_at);
+CREATE INDEX idx_message_sender ON raw_messages (sender_identity_id);
 
 CREATE TABLE IF NOT EXISTS raw_tasks (
 	id BIGINT NOT NULL AUTO_INCREMENT, 
@@ -179,6 +195,9 @@ CREATE TABLE IF NOT EXISTS raw_tasks (
 	FOREIGN KEY(owner_identity_id) REFERENCES member_identities (id)
 );
 
+CREATE INDEX idx_task_owner ON raw_tasks (owner_identity_id);
+CREATE INDEX idx_task_time ON raw_tasks (status_changed_at);
+
 CREATE TABLE IF NOT EXISTS report_items (
 	id BIGINT NOT NULL AUTO_INCREMENT, 
 	report_id BIGINT NOT NULL, 
@@ -193,6 +212,9 @@ CREATE TABLE IF NOT EXISTS report_items (
 	PRIMARY KEY (id), 
 	FOREIGN KEY(report_id) REFERENCES daily_reports (id) ON DELETE CASCADE
 );
+
+CREATE INDEX idx_item_report ON report_items (report_id);
+CREATE INDEX idx_item_source ON report_items (source_type, source_id);
 
 CREATE TABLE IF NOT EXISTS report_versions (
 	id BIGINT NOT NULL AUTO_INCREMENT, 

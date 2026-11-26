@@ -9,7 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from sqlalchemy import create_mock_engine
-from sqlalchemy.schema import CreateTable
+from sqlalchemy.schema import CreateIndex, CreateTable
 
 from app.models.entities import Base
 
@@ -32,6 +32,13 @@ def main() -> None:
         ddl = str(CreateTable(table).compile(dialect=engine.dialect)).strip()
         ddl = ddl.replace("CREATE TABLE ", "CREATE TABLE IF NOT EXISTS ", 1)
         lines.extend([ddl + ";", ""])
+        for index in sorted(table.indexes, key=lambda item: item.name or ""):
+            index_ddl = str(
+                CreateIndex(index).compile(dialect=engine.dialect)
+            ).strip()
+            lines.append(index_ddl + ";")
+        if table.indexes:
+            lines.append("")
 
     output = Path(__file__).resolve().parents[1] / "sql" / "schema.sql"
     output.parent.mkdir(parents=True, exist_ok=True)
