@@ -1,4 +1,5 @@
 <script setup>
+import { ArrowRight, FileText, Pencil, User, Users } from '@lucide/vue'
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 
@@ -17,6 +18,25 @@ const filtered = computed(() =>
     return true
   }),
 )
+
+const summaryStats = computed(() => [
+  { label: '全部', value: reports.value.length, icon: FileText },
+  {
+    label: '团队',
+    value: reports.value.filter((report) => report.report_type === 'team').length,
+    icon: Users,
+  },
+  {
+    label: '个人',
+    value: reports.value.filter((report) => report.report_type === 'personal').length,
+    icon: User,
+  },
+  {
+    label: '草稿',
+    value: reports.value.filter((report) => report.status === 'draft').length,
+    icon: Pencil,
+  },
+])
 
 const typeLabel = (type) => (type === 'team' ? '团队日报' : '个人日报')
 const statusLabel = (status) =>
@@ -54,6 +74,16 @@ onMounted(loadReports)
       <p class="page-sub">按日期查看团队与成员日报</p>
     </header>
 
+    <div class="stat-row">
+      <div v-for="stat in summaryStats" :key="stat.label" class="stat-tile">
+        <div class="stat-head">
+          <component :is="stat.icon" :size="16" :stroke-width="1.5" />
+          <span>{{ stat.label }}</span>
+        </div>
+        <div class="stat-value mono">{{ stat.value }}</div>
+      </div>
+    </div>
+
     <section class="card report-card" aria-labelledby="reports-title">
       <header class="card-head">
         <div>
@@ -61,11 +91,26 @@ onMounted(loadReports)
           <p class="card-sub">{{ filtered.length }} 份</p>
         </div>
         <div class="filters">
-          <select v-model="typeFilter" class="select" aria-label="按类型筛选">
-            <option value="all">全部类型</option>
-            <option value="team">团队日报</option>
-            <option value="personal">个人日报</option>
-          </select>
+          <div class="segmented" role="group" aria-label="按类型筛选">
+            <button
+              :class="{ active: typeFilter === 'all' }"
+              @click="typeFilter = 'all'"
+            >
+              全部
+            </button>
+            <button
+              :class="{ active: typeFilter === 'team' }"
+              @click="typeFilter = 'team'"
+            >
+              团队
+            </button>
+            <button
+              :class="{ active: typeFilter === 'personal' }"
+              @click="typeFilter = 'personal'"
+            >
+              个人
+            </button>
+          </div>
           <input v-model="dateFilter" class="select" type="date" aria-label="按日期筛选" />
         </div>
       </header>
@@ -77,11 +122,19 @@ onMounted(loadReports)
           <li v-for="report in filtered" :key="report.id" class="report-row">
             <RouterLink :to="`/reports/${report.id}`" class="report-link">
               <div class="report-main">
-                <span class="report-date mono">{{ report.report_date }}</span>
-                <span class="report-title">
-                  {{ report.member_name ? `${report.member_name} · ` : '' }}{{ typeLabel(report.report_type) }}
-                </span>
-                <span class="report-meta">{{ summaryLine(report) }}</span>
+                <div class="report-title-line">
+                  <span class="report-icon">
+                    <component
+                      :is="report.report_type === 'team' ? Users : User"
+                      :size="15"
+                      :stroke-width="1.5"
+                    />
+                  </span>
+                  <span class="report-title">
+                    {{ report.member_name ? `${report.member_name} · ` : '' }}{{ typeLabel(report.report_type) }}
+                  </span>
+                </div>
+                <span class="report-meta">{{ report.report_date }} · {{ summaryLine(report) }}</span>
               </div>
               <div class="report-side">
                 <span class="report-status">
@@ -93,6 +146,7 @@ onMounted(loadReports)
                   <span>{{ statusLabel(report.status) }}</span>
                 </span>
                 <span class="mono report-version">v{{ report.current_version }}</span>
+                <ArrowRight :size="16" :stroke-width="1.5" class="report-arrow" />
               </div>
             </RouterLink>
           </li>
