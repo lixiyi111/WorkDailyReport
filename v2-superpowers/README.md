@@ -119,6 +119,6 @@ npm run build
 
 ## 说明
 
-- 飞书 `21001` 未解决前保持 `FEISHU_USE_MOCK=true`；GitHub 有 token 时走真实采集，否则走 Mock。
-- 凭证只放 `backend/.env`，该文件已被 git 忽略；仓库内只有 `.env.example`。
+- 飞书 `21001` 未解决前保持 `FEISHU_USE_MOCK=true`；GitHub 已同步 v1 的 token，2026-11-26 实测采集 23 条，未配置 token 时自动回退 Mock。
+- 凭证只放 `backend/.env`，该文件已被 git 忽略；仓库内只有 `.env.example`。可用 `python -m scripts.sync_env_from_v1 ../../v1-sdd/backend/.env .env` 从 v1 同步凭证（不打印值）。
 - 账号密码与 `AUTH_SECRET` 仅用于本地演示，部署前必须更换。
