@@ -13,6 +13,7 @@ def health() -> dict:
     return {
         "status": "ok",
         "app_env": settings.app_env,
+        "feishu_mode": "mock" if settings.feishu_use_mock else "live",
         "credentials": {
             "github": bool(settings.github_token),
             "feishu": bool(settings.feishu_app_id and settings.feishu_app_secret),

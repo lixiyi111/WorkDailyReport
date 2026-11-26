@@ -64,6 +64,10 @@ class Settings(BaseSettings):
     enable_scheduler: bool = False
     report_push_time: str = "09:00"
 
+    # 飞书未就绪时用 Mock 数据源（GitHub 仍可走真实采集）
+    feishu_use_mock: bool = False
+    mock_member_emails: str = ""
+
     @property
     def cors_origin_list(self) -> list[str]:
         """把逗号分隔的 CORS 来源解析为列表。"""
@@ -92,6 +96,10 @@ class Settings(BaseSettings):
     @property
     def report_recipient_list(self) -> list[str]:
         return [e.strip() for e in self.report_recipients.split(",") if e.strip()]
+
+    @property
+    def mock_member_email_list(self) -> list[str]:
+        return [e.strip() for e in self.mock_member_emails.split(",") if e.strip()]
 
 
 @lru_cache

@@ -17,22 +17,34 @@ from app.services.pushers import ConsolePusher, EmailPusher, FeishuBotPusher
 
 
 def build_collectors(settings: Settings, *, demo: bool = False) -> list:
+    emails = settings.mock_member_email_list or None
     if demo:
         return [
-            MockGitHubCollector(),
-            MockFeishuTaskCollector(),
-            MockFeishuMessageCollector(),
+            MockGitHubCollector(emails),
+            MockFeishuTaskCollector(emails),
+            MockFeishuMessageCollector(emails),
         ]
-    feishu = FeishuClient(
-        settings.feishu_app_id,
-        settings.feishu_app_secret,
-        settings.feishu_base_url,
-    )
-    return [
-        GitHubCollector(settings.github_token, settings.github_api_base, settings.github_repo_list),
-        FeishuTaskCollector(feishu),
-        FeishuMessageCollector(feishu, settings.feishu_chat_id_list),
+
+    collectors: list = [
+        GitHubCollector(settings.github_token, settings.github_api_base, settings.github_repo_list)
     ]
+    if settings.feishu_use_mock:
+        collectors.extend(
+            [MockFeishuTaskCollector(emails), MockFeishuMessageCollector(emails)]
+        )
+    else:
+        feishu = FeishuClient(
+            settings.feishu_app_id,
+            settings.feishu_app_secret,
+            settings.feishu_base_url,
+        )
+        collectors.extend(
+            [
+                FeishuTaskCollector(feishu),
+                FeishuMessageCollector(feishu, settings.feishu_chat_id_list),
+            ]
+        )
+    return collectors
 
 
 def build_pushers(settings: Settings, *, demo: bool = False) -> list:
@@ -47,13 +59,14 @@ def build_pushers(settings: Settings, *, demo: bool = False) -> list:
                 settings.smtp_from_name,
             )
         )
-        pushers.append(
-            FeishuBotPusher(
-                settings.feishu_app_id,
-                settings.feishu_app_secret,
-                settings.feishu_base_url,
+        if not settings.feishu_use_mock:
+            pushers.append(
+                FeishuBotPusher(
+                    settings.feishu_app_id,
+                    settings.feishu_app_secret,
+                    settings.feishu_base_url,
+                )
             )
-        )
     return pushers
 
 

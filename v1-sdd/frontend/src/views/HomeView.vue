@@ -30,11 +30,14 @@ const connectionLabel = computed(() => {
 
 const sources = computed(() => {
   if (!health.value) return []
-  return Object.entries(health.value.credentials).map(([key, ready]) => ({
-    key,
-    ready,
-    ...(SOURCE_META[key] ?? { name: key, desc: '' }),
-  }))
+  return Object.entries(health.value.credentials).map(([key, ready]) => {
+    const meta = SOURCE_META[key] ?? { name: key, desc: '' }
+    const desc =
+      key === 'feishu' && health.value.feishu_mode === 'mock'
+        ? `${meta.desc} · Mock`
+        : meta.desc
+    return { key, ready, name: meta.name, desc }
+  })
 })
 
 async function loadHealth() {

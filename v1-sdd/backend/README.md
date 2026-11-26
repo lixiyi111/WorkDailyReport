@@ -54,12 +54,15 @@ cp .env.example .env    # 填入 GITHUB_TOKEN / 飞书 / SMTP / DB_PASSWORD
 | `GITHUB_TOKEN` / `GITHUB_REPOS` | 只读令牌；数据源仓库，逗号分隔 `owner/repo` |
 | `FEISHU_APP_ID` / `FEISHU_APP_SECRET` | 自建应用凭证 |
 | `FEISHU_BASE_URL` | 默认 `https://open.feishu.cn`；Lark 国际版用 `https://open.larksuite.com` |
+| `FEISHU_USE_MOCK` / `MOCK_MEMBER_EMAILS` | 飞书未就绪时用 Mock 数据源；Mock 数据使用的成员邮箱（逗号分隔） |
 | `FEISHU_CHAT_IDS` | 要采集的群 chat_id，逗号分隔 |
 | `FEISHU_REPORT_CHAT_ID` | 日报推送目标群 chat_id |
 | `SMTP_USER` / `SMTP_AUTH_CODE` / `REPORT_RECIPIENTS` | 发件邮箱、授权码、收件人 |
 | `DB_*` | MySQL 连接（本项目 3305） |
 
 > 飞书 `21001 Access denied due to platform policy` 是**平台访问控制策略拒绝**（access denied by access control policy），不是缺 scope、不是 token 接口写错，也不是代码问题。最常见于**个人版租户 / 个人账号**创建的自建应用；需要企业租户（或已认证的个人组织账号），并由管理员在「安全 → 数据安全 → 应用权限管控」放行。可同时确认：应用已发布/启用、权限已审批、IP 白名单、`app_secret` 未被轮换。若仍无法解决，联系飞书支持并提供响应头里的 `x-tt-logid`。
+>
+> 在飞书恢复前，可设 `FEISHU_USE_MOCK=true`：GitHub 仍走真实采集，飞书任务/消息使用 Mock 数据，飞书机器人推送会自动跳过。
 
 ### 2. 创建数据库与表（使用 SQL 文件）
 
